@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Puzzle, Expression, PuzzleArchetype, Operator, EvaluationStep } from '@/engine/types';
 import { generator } from '@/engine/generator';
-import { adjustDifficulty, DIFFICULTY_PRESETS } from '@/engine/difficulty';
+import { adjustDifficulty, DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET } from '@/engine/difficulty';
 import { calculateXPReward, calculateCoinReward, extractUsedOperators } from '@/engine/adaptive';
 import { getZoneById, getBossInfo } from '@/engine/story';
 import { usePlayerStore } from './playerStore';
@@ -57,6 +57,73 @@ function createSimpleAdditionPuzzle(difficulty: 1 | 2 | 3 | 4 | 5): Puzzle {
       generatedAt: Date.now(),
       validatedAt: Date.now(),
       estimatedSolveTime: 30
+    }
+  };
+}
+
+// Creates a BOSS addition puzzle with 5 numbers for Addlands zone
+function createBossAdditionPuzzle(): Puzzle {
+  const [min, max] = BOSS_DIFFICULTY_PRESET.numberRange;
+
+  // Generate 5 random numbers for boss battle
+  const nums: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    nums.push(Math.floor(Math.random() * (max - min + 1)) + min);
+  }
+
+  // Target is sum of 3-4 of them (require more numbers to be used)
+  const useCount = Math.random() < 0.5 ? 3 : 4;
+  const shuffled = [...nums].sort(() => Math.random() - 0.5);
+  const usedNums = shuffled.slice(0, useCount);
+  const target = usedNums.reduce((a, b) => a + b, 0);
+
+  // Build solution steps
+  const steps: EvaluationStep[] = [];
+  let runningSum = usedNums[0];
+  let notation = `${usedNums[0]}`;
+
+  for (let i = 1; i < usedNums.length; i++) {
+    const newSum = runningSum + usedNums[i];
+    steps.push({
+      left: runningSum,
+      operator: '+',
+      right: usedNums[i],
+      result: newSum,
+      notation: `${runningSum} + ${usedNums[i]} = ${newSum}`
+    });
+    notation += ` + ${usedNums[i]}`;
+    runningSum = newSum;
+  }
+
+  return {
+    id: `boss-${Date.now()}`,
+    numbers: nums,
+    availableOperators: ['+'],
+    target,
+    constraints: {
+      mustUseAllNumbers: false,
+      allowParentheses: false,
+      allowedOperators: ['+'],
+      maxSteps: 4,
+      allowNegativeIntermediates: false,
+      allowFractions: false
+    },
+    archetype: 'chain',
+    difficulty: BOSS_DIFFICULTY_PRESET,
+    signature: `boss-add-${nums.join('-')}`,
+    solution: {
+      notation: `${notation} = ${target}`,
+      tree: { type: 'number', value: target },
+      result: target,
+      steps,
+      complexity: useCount
+    },
+    traps: [],
+    alternativeSolutions: [],
+    metadata: {
+      generatedAt: Date.now(),
+      validatedAt: Date.now(),
+      estimatedSolveTime: 90
     }
   };
 }
@@ -148,8 +215,21 @@ export const useGameStore = create<GameState>()(
 
         // For addition-only zones (Addlands), always use simple guaranteed-solvable puzzles
         // The main generator has issues with single-operator constraints
-        console.log('[DEBUG] Zone:', effectiveZoneId, 'Operators:', zoneOperators);
+        console.log('[DEBUG] Zone:', effectiveZoneId, 'Operators:', zoneOperators, 'Boss:', isBossMode);
         if (zoneOperators.length === 1 && zoneOperators[0] === '+') {
+          // BOSS MODE: Use 5-number boss puzzle
+          if (isBossMode) {
+            console.log('[DEBUG] Using BOSS addition puzzle (5 numbers)');
+            const bossPuzzle = createBossAdditionPuzzle();
+            set({
+              currentPuzzle: bossPuzzle,
+              currentZoneId: effectiveZoneId,
+              puzzleStartTime: Date.now(),
+              hintsUsed: 0,
+            });
+            return;
+          }
+          // Normal mode: Use simple 3-number puzzle
           console.log('[DEBUG] Using simple addition puzzle');
           const simplePuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
           set({
@@ -167,9 +247,19 @@ export const useGameStore = create<GameState>()(
           ? recentArchetypes.filter((a, i, arr) => arr.indexOf(a) !== i)
           : [];
 
-        const puzzle = archetype
-          ? generator.generate(archetype, effectiveDifficulty, zoneOperators)
-          : generator.generateNext(effectiveDifficulty, excludeArchetypes, zoneOperators);
+        // BOSS MODE for non-addition zones: Use generateBossPuzzle
+        let puzzle: Puzzle | null = null;
+        if (isBossMode) {
+          console.log('[DEBUG] Using BOSS puzzle generator (5 numbers)');
+          puzzle = generator.generateBossPuzzle(zoneOperators);
+        }
+
+        // Normal puzzle generation
+        if (!puzzle) {
+          puzzle = archetype
+            ? generator.generate(archetype, effectiveDifficulty, zoneOperators)
+            : generator.generateNext(effectiveDifficulty, excludeArchetypes, zoneOperators);
+        }
 
         if (puzzle) {
           set({
