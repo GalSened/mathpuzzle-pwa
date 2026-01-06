@@ -6,6 +6,7 @@ import type { ItemCategory } from '@/engine/shopTypes';
 import { useShopStore, useOwnedItems, useEquippedCloak, useEquippedPet } from '@/store/shopStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { ItemCard } from './ItemCard';
+import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 
 const TABS: { id: 'equipped' | 'all' | 'consumables'; label: string; icon: string }[] = [
   { id: 'equipped', label: 'מצויד', icon: '⚔️' },
@@ -91,6 +92,11 @@ export function InventoryView({ onClose }: InventoryViewProps) {
             ✕
           </motion.button>
         )}
+      </div>
+
+      {/* Avatar preview */}
+      <div className="flex justify-center mb-6">
+        <AvatarDisplay size="lg" showPet={true} showEffects={true} />
       </div>
 
       {/* Equipped items summary */}

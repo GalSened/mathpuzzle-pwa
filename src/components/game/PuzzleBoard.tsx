@@ -14,7 +14,7 @@ import { evaluateAttempt } from '@/engine/hints';
 interface PuzzleBoardProps {
   puzzle: Puzzle;
   onSolve: (expression: Expression) => void;
-  onSkip: () => void;
+  onSkip?: () => void;  // Optional - not shown in boss mode
 }
 
 type NumberState = 'unused' | 'selected' | 'used';

@@ -1,11 +1,65 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Puzzle, Expression, PuzzleArchetype, Operator } from '@/engine/types';
+import type { Puzzle, Expression, PuzzleArchetype, Operator, EvaluationStep } from '@/engine/types';
 import { generator } from '@/engine/generator';
-import { adjustDifficulty } from '@/engine/difficulty';
+import { adjustDifficulty, DIFFICULTY_PRESETS } from '@/engine/difficulty';
 import { calculateXPReward, calculateCoinReward, extractUsedOperators } from '@/engine/adaptive';
-import { getZoneById } from '@/engine/story';
+import { getZoneById, getBossInfo } from '@/engine/story';
 import { usePlayerStore } from './playerStore';
+
+// Creates a simple addition puzzle for Addlands zone when generator fails
+function createSimpleAdditionPuzzle(difficulty: 1 | 2 | 3 | 4 | 5): Puzzle {
+  const difficultyProfile = DIFFICULTY_PRESETS[difficulty];
+  const [min, max] = difficultyProfile.numberRange;
+
+  // Generate 3 random numbers
+  const a = Math.floor(Math.random() * (max - min + 1)) + min;
+  const b = Math.floor(Math.random() * (max - min + 1)) + min;
+  const c = Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // Target is sum of two of them
+  const target = a + b;
+
+  const solutionStep: EvaluationStep = {
+    left: a,
+    operator: '+',
+    right: b,
+    result: target,
+    notation: `${a} + ${b} = ${target}`
+  };
+
+  return {
+    id: `simple-${Date.now()}`,
+    numbers: [a, b, c],
+    availableOperators: ['+'],
+    target,
+    constraints: {
+      mustUseAllNumbers: false,
+      allowParentheses: false,
+      allowedOperators: ['+'],
+      maxSteps: 2,
+      allowNegativeIntermediates: false,
+      allowFractions: false
+    },
+    archetype: 'decision',
+    difficulty: difficultyProfile,
+    signature: `simple-add-${a}-${b}-${c}`,
+    solution: {
+      notation: solutionStep.notation,
+      tree: { type: 'number', value: target },
+      result: target,
+      steps: [solutionStep],
+      complexity: 1
+    },
+    traps: [],
+    alternativeSolutions: [],
+    metadata: {
+      generatedAt: Date.now(),
+      validatedAt: Date.now(),
+      estimatedSolveTime: 30
+    }
+  };
+}
 
 interface PuzzleResult {
   puzzleId: string;
@@ -36,7 +90,7 @@ interface GameState {
   stats: GameStats;
 
   // Actions
-  startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string) => void;
+  startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => void;
   setZone: (zoneId: string) => void;
   recordResult: (expression: Expression, hintsUsed: number) => void;
   skipPuzzle: () => void;
@@ -75,13 +129,37 @@ export const useGameStore = create<GameState>()(
         set({ currentZoneId: zoneId });
       },
 
-      startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string) => {
+      startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => {
         const { currentDifficulty, currentZoneId, recentResults } = get();
 
         // Get zone operators
         const effectiveZoneId = zoneId || currentZoneId || 'addlands';
         const zone = getZoneById(effectiveZoneId);
         const zoneOperators: Operator[] = zone?.ops || ['+'];
+
+        // Calculate effective difficulty (boss mode increases difficulty)
+        let effectiveDifficulty = currentDifficulty;
+        if (isBossMode && zone) {
+          const bossInfo = getBossInfo(zone);
+          // Boss difficulty ranges from 2-5, add (difficulty - 1) to base difficulty
+          const bossBonus = bossInfo.difficulty - 1;
+          effectiveDifficulty = Math.min(5, currentDifficulty + bossBonus) as 1 | 2 | 3 | 4 | 5;
+        }
+
+        // For addition-only zones (Addlands), always use simple guaranteed-solvable puzzles
+        // The main generator has issues with single-operator constraints
+        console.log('[DEBUG] Zone:', effectiveZoneId, 'Operators:', zoneOperators);
+        if (zoneOperators.length === 1 && zoneOperators[0] === '+') {
+          console.log('[DEBUG] Using simple addition puzzle');
+          const simplePuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
+          set({
+            currentPuzzle: simplePuzzle,
+            currentZoneId: effectiveZoneId,
+            puzzleStartTime: Date.now(),
+            hintsUsed: 0,
+          });
+          return;
+        }
 
         // Calculate excluded archetypes based on recent puzzles
         const recentArchetypes = recentResults.slice(-3).map(r => r.archetype);
@@ -90,8 +168,8 @@ export const useGameStore = create<GameState>()(
           : [];
 
         const puzzle = archetype
-          ? generator.generate(archetype, currentDifficulty, zoneOperators)
-          : generator.generateNext(currentDifficulty, excludeArchetypes, zoneOperators);
+          ? generator.generate(archetype, effectiveDifficulty, zoneOperators)
+          : generator.generateNext(effectiveDifficulty, excludeArchetypes, zoneOperators);
 
         if (puzzle) {
           set({
@@ -102,7 +180,13 @@ export const useGameStore = create<GameState>()(
           });
         } else {
           // Fallback: try with any archetype but keep zone operators
-          const fallbackPuzzle = generator.generateNext(currentDifficulty, [], zoneOperators);
+          let fallbackPuzzle = generator.generateNext(effectiveDifficulty, [], zoneOperators);
+
+          // Ultimate fallback: create a simple addition puzzle manually
+          if (!fallbackPuzzle && zoneOperators.length === 1 && zoneOperators[0] === '+') {
+            fallbackPuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
+          }
+
           set({
             currentPuzzle: fallbackPuzzle,
             currentZoneId: effectiveZoneId,

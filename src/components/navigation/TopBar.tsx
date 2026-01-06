@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
 import { CoinDisplay, XPDisplay } from '@/components/ui/CoinDisplay';
+import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 
 interface TopBarProps {
   title?: string;
@@ -17,8 +18,9 @@ export function TopBar({ title, showStats = true, onSettingsClick }: TopBarProps
   return (
     <header className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700">
       <div className="flex items-center justify-between p-3 max-w-lg mx-auto">
-        {/* Left: Level & Streak */}
+        {/* Left: Avatar, Level & Streak */}
         <div className="flex items-center gap-3">
+          <AvatarDisplay size="sm" showPet={false} />
           <motion.div
             className="flex items-center gap-1.5 bg-blue-900/50 px-3 py-1.5 rounded-full border border-blue-500/50"
             whileHover={{ scale: 1.05 }}

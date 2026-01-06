@@ -5,11 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
 import { useProgressStore } from '@/store/progressStore';
 import { useGameStore } from '@/store/gameStore';
-import { getZoneById, ZONES } from '@/engine/story';
+import { getZoneById, ZONES, getBossInfo, isBossPuzzle } from '@/engine/story';
+import { BossAnnouncement } from '@/components/game/BossAnnouncement';
+import { BossVictory } from '@/components/game/BossVictory';
 import { ZoneBanner, ZoneCard } from '@/components/ui/ZoneBackground';
 import { BottomNav, NavTab, TopBar } from '@/components/navigation';
 import { ShopPage, InventoryView } from '@/components/shop';
 import { LevelUpModal } from '@/components/ui/CoinDisplay';
+import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
 
 interface HomeScreenProps {
@@ -212,37 +215,116 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const recordResult = useGameStore((s) => s.recordResult);
   const skipPuzzle = useGameStore((s) => s.skipPuzzle);
 
+  // Boss system state
+  const puzzlesSinceLastBoss = useProgressStore((s) => s.puzzlesSinceLastBoss);
+  const defeatBoss = useProgressStore((s) => s.defeatBoss);
+  const recordPuzzleSolved = useProgressStore((s) => s.recordPuzzleSolved);
+  const addXP = usePlayerStore((s) => s.addXP);
+  const addCoins = usePlayerStore((s) => s.addCoins);
+
+  // Boss encounter states
+  const [showBossAnnouncement, setShowBossAnnouncement] = useState(false);
+  const [showBossVictory, setShowBossVictory] = useState(false);
+  const [isBossMode, setIsBossMode] = useState(false);
+  const [bossRewards, setBossRewards] = useState({ coins: 0, xp: 0 });
+
+  // Check if next puzzle should be a boss
+  const checkAndStartBoss = () => {
+    if (zone && puzzlesSinceLastBoss >= zone.bossEvery - 1) {
+      setShowBossAnnouncement(true);
+      return true;
+    }
+    return false;
+  };
+
   // Start a puzzle when entering play mode if none exists
   useEffect(() => {
-    if (!currentPuzzle) {
-      startNewPuzzle(undefined, currentZoneId);
+    if (!currentPuzzle && !showBossAnnouncement && !showBossVictory) {
+      // Check if it's boss time
+      if (!checkAndStartBoss()) {
+        startNewPuzzle(undefined, currentZoneId);
+      }
     }
-  }, [currentPuzzle, currentZoneId, startNewPuzzle]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory]);
+
+  const handleBossStart = () => {
+    setShowBossAnnouncement(false);
+    setIsBossMode(true);
+    // Start a boss puzzle (with boss difficulty modifier)
+    startNewPuzzle(undefined, currentZoneId, true);
+  };
 
   const handleSolve = (expression: import('@/engine/types').Expression) => {
     recordResult(expression, hintsUsed);
-    // Start next puzzle after a brief delay
-    setTimeout(() => startNewPuzzle(undefined, currentZoneId), 1500);
+    recordPuzzleSolved(currentZoneId);
+
+    if (isBossMode && zone) {
+      // Boss defeated!
+      const bossInfo = getBossInfo(zone);
+      const coinReward = 100;
+      const xpReward = 50 + bossInfo.difficulty * 20;
+
+      defeatBoss(currentZoneId);
+      addCoins(coinReward, 'boss');
+      addXP(xpReward);
+
+      setBossRewards({ coins: coinReward, xp: xpReward });
+      setIsBossMode(false);
+      setShowBossVictory(true);
+    } else {
+      // Normal puzzle solved - start next after delay
+      setTimeout(() => {
+        if (!checkAndStartBoss()) {
+          startNewPuzzle(undefined, currentZoneId);
+        }
+      }, 1500);
+    }
+  };
+
+  const handleBossVictoryContinue = () => {
+    setShowBossVictory(false);
+    // Start next regular puzzle
+    setTimeout(() => startNewPuzzle(undefined, currentZoneId), 500);
   };
 
   const handleSkip = () => {
-    skipPuzzle();
-    startNewPuzzle(undefined, currentZoneId);
+    if (!isBossMode) {
+      skipPuzzle();
+      startNewPuzzle(undefined, currentZoneId);
+    }
+    // Can't skip boss puzzles
   };
+
+  const bossInfo = zone ? getBossInfo(zone) : null;
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
       {/* Zone background overlay */}
       {zone && (
         <div
-          className={`absolute inset-0 bg-gradient-to-b ${zone.theme.background} opacity-20`}
+          className={`absolute inset-0 bg-gradient-to-b ${zone.theme.background} opacity-20 pointer-events-none z-[-1]`}
         />
       )}
+
+      {/* Boss mode indicator */}
+      {isBossMode && bossInfo && (
+        <motion.div
+          className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-red-900/80 px-4 py-2 rounded-full border border-red-500"
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+        >
+          <span className="text-red-200 text-sm font-bold">
+            ⚔️ קרב בוס: {bossInfo.nameHe}
+          </span>
+        </motion.div>
+      )}
+
       {currentPuzzle ? (
         <PuzzleBoard
           puzzle={currentPuzzle}
           onSolve={handleSolve}
-          onSkip={handleSkip}
+          onSkip={isBossMode ? undefined : handleSkip}
         />
       ) : (
         <div className="flex items-center justify-center h-64">
@@ -255,6 +337,30 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
           </motion.div>
         </div>
       )}
+
+      {/* Boss Announcement Modal */}
+      <AnimatePresence>
+        {showBossAnnouncement && zone && bossInfo && (
+          <BossAnnouncement
+            bossInfo={bossInfo}
+            zone={zone}
+            onStart={handleBossStart}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Boss Victory Modal */}
+      <AnimatePresence>
+        {showBossVictory && zone && bossInfo && (
+          <BossVictory
+            bossInfo={bossInfo}
+            zone={zone}
+            coinsEarned={bossRewards.coins}
+            xpEarned={bossRewards.xp}
+            onContinue={handleBossVictoryContinue}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -282,7 +388,9 @@ function ProfileContent() {
     <div className="p-4 space-y-6">
       {/* Profile Header */}
       <div className="text-center">
-        <div className="text-6xl mb-3">🧙‍♂️</div>
+        <div className="mb-3 flex justify-center">
+          <AvatarDisplay size="lg" showPet={true} showEffects={true} />
+        </div>
         <h2 className="text-white text-2xl font-bold">שלב {level}</h2>
         <p className="text-gray-400">שחקן מתמטי</p>
       </div>
