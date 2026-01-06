@@ -94,7 +94,7 @@ export class PuzzleGenerator {
     const templates = TEMPLATES[archetype];
     const template = templates[Math.floor(Math.random() * templates.length)];
 
-    const { numbers, target, operators } = this.fillTemplate(
+    const { numbers, target } = this.fillTemplate(
       template,
       archetype,
       difficulty
@@ -102,7 +102,7 @@ export class PuzzleGenerator {
 
     if (!numbers || !target) return null;
 
-    const constraints = this.buildConstraints(archetype, difficulty, operators);
+    const constraints = this.buildConstraints(archetype, difficulty);
 
     const allSolutions = solver.findAllSolutions(numbers, target, constraints);
 
@@ -179,7 +179,7 @@ export class PuzzleGenerator {
     const [min, max] = difficulty.numberRange;
 
     for (let attempt = 0; attempt < 20; attempt++) {
-      const numbers = this.tryGenerateNumbers(target, operators, min, max, template);
+      const numbers = this.tryGenerateNumbers(target, operators, min, max);
       if (numbers && this.validateNumbers(numbers, difficulty)) {
         return numbers;
       }
@@ -192,8 +192,7 @@ export class PuzzleGenerator {
     target: number,
     operators: Operator[],
     min: number,
-    max: number,
-    _template: string
+    max: number
   ): number[] | null {
     const opCount = operators.length;
 
@@ -323,8 +322,7 @@ export class PuzzleGenerator {
 
   private buildConstraints(
     archetype: PuzzleArchetype,
-    difficulty: DifficultyProfile,
-    _operators: Operator[]
+    difficulty: DifficultyProfile
   ): PuzzleConstraints {
     return {
       mustUseAllNumbers: archetype !== 'decision',

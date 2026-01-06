@@ -101,6 +101,7 @@ export default function Home() {
       <main className="flex-1 py-4">
         {currentPuzzle ? (
           <PuzzleBoard
+            key={currentPuzzle.id}
             puzzle={currentPuzzle}
             onSolve={handleSolve}
             onSkip={handleSkip}

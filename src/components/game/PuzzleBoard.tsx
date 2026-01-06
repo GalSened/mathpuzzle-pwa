@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { NumberTile } from '@/components/ui/NumberTile';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { he } from '@/lib/i18n';
 import { useUserStore } from '@/store/userStore';
 import type { Puzzle, Operator, Expression, EvaluationStep, ExpressionNode } from '@/engine/types';
-import { generateHint, evaluateAttempt } from '@/engine/hints';
+import { evaluateAttempt } from '@/engine/hints';
 
 interface PuzzleBoardProps {
   puzzle: Puzzle;
@@ -39,6 +39,17 @@ function createExpression(steps: EvaluationStep[], result: number): Expression {
   };
 }
 
+function initState(p: Puzzle): BuildState {
+  return {
+    numbers: p.numbers.map((v, i) => ({ value: v, state: 'unused' as NumberState, originalIndex: i })),
+    selectedNumber: null,
+    selectedIndex: null,
+    pendingOperator: null,
+    steps: [],
+    currentResult: null,
+  };
+}
+
 export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
   const [buildState, setBuildState] = useState<BuildState>(() => initState(puzzle));
   const [hintLevel, setHintLevel] = useState(0);
@@ -49,24 +60,6 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
   const name = useUserStore((s) => s.name);
   const gender = useUserStore((s) => s.gender);
 
-  useEffect(() => {
-    setBuildState(initState(puzzle));
-    setHintLevel(0);
-    setCurrentHint(null);
-    setFeedback(null);
-    setIsWin(false);
-  }, [puzzle]);
-
-  function initState(p: Puzzle): BuildState {
-    return {
-      numbers: p.numbers.map((v, i) => ({ value: v, state: 'unused' as NumberState, originalIndex: i })),
-      selectedNumber: null,
-      selectedIndex: null,
-      pendingOperator: null,
-      steps: [],
-      currentResult: null,
-    };
-  }
 
   const handleNumberClick = useCallback((index: number) => {
     setBuildState(prev => {
