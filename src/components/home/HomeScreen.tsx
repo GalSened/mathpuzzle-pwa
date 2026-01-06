@@ -10,13 +10,14 @@ import { getZoneById, ZONES, getBossInfo } from '@/engine/story';
 import { BossAnnouncement } from '@/components/game/BossAnnouncement';
 import { BossVictory } from '@/components/game/BossVictory';
 import { ZoneBanner, ZoneCard } from '@/components/ui/ZoneBackground';
+import { ZoneMasteryModal } from '@/components/ui/ZoneMasteryModal';
 import { BottomNav, NavTab, TopBar } from '@/components/navigation';
 import { ShopPage, InventoryView } from '@/components/shop';
 import { LevelUpModal } from '@/components/ui/CoinDisplay';
 import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
 import { OperatorGuide, ZoneIntro } from '@/components/onboarding/OperatorGuide';
-import type { Operator } from '@/engine/types';
+import type { Operator, OperatorSkill, ZoneProgressV2 } from '@/engine/types';
 
 interface HomeScreenProps {
   initialTab?: NavTab;
@@ -37,9 +38,26 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   const setCurrentZone = useProgressStore((s) => s.setCurrentZone);
   const checkZoneUnlocks = useProgressStore((s) => s.checkZoneUnlocks);
 
+  // V2 progress tracking
+  const zoneProgressV2 = useProgressStore((s) => s.zoneProgressV2);
+  const initializeProgressV2 = useProgressStore((s) => s.initializeProgressV2);
+  const progressVersion = useProgressStore((s) => s.progressVersion);
+  const migrateFromV1 = useProgressStore((s) => s.migrateFromV1);
+
   const currentZone = getZoneById(currentZoneId);
 
-  // Check for zone unlocks when level changes
+  // Initialize V2 progress on mount (or migrate from V1)
+  useEffect(() => {
+    if (progressVersion === 1) {
+      // Migrate existing V1 data to V2
+      migrateFromV1();
+    } else if (Object.keys(zoneProgressV2).length === 0) {
+      // First time user - initialize V2
+      initializeProgressV2();
+    }
+  }, [progressVersion, zoneProgressV2, migrateFromV1, initializeProgressV2]);
+
+  // Check for zone unlocks when level changes (V1 compatibility)
   useEffect(() => {
     checkZoneUnlocks();
   }, [level, checkZoneUnlocks]);
@@ -67,6 +85,7 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
             dailyStreak={dailyStreak}
             skill={skill}
             totalPuzzlesSolved={totalPuzzlesSolved}
+            zoneProgressV2={zoneProgressV2}
           />
         );
       case 'play':
@@ -121,8 +140,9 @@ interface HomeContentProps {
   unlockedZones: string[];
   onStartGame: (zoneId?: string) => void;
   dailyStreak: number;
-  skill: { '+': number; '-': number; '×': number; '÷': number };
+  skill: OperatorSkill;
   totalPuzzlesSolved: number;
+  zoneProgressV2: Record<string, ZoneProgressV2>;
 }
 
 function HomeContent({
@@ -132,6 +152,7 @@ function HomeContent({
   dailyStreak,
   skill,
   totalPuzzlesSolved,
+  zoneProgressV2,
 }: HomeContentProps) {
   return (
     <div className="p-4 space-y-6">
@@ -190,7 +211,10 @@ function HomeContent({
         </h3>
         <div className="space-y-3">
           {ZONES.map((zone) => {
-            const isUnlocked = unlockedZones.includes(zone.id);
+            // V2 progress check - fall back to V1 for backwards compatibility
+            const v2Progress = zoneProgressV2[zone.id];
+            const isUnlockedV2 = v2Progress?.status !== 'locked';
+            const isUnlocked = isUnlockedV2 || unlockedZones.includes(zone.id);
             const isCurrent = currentZone?.id === zone.id;
 
             return (
@@ -200,6 +224,8 @@ function HomeContent({
                 isUnlocked={isUnlocked}
                 isCurrent={isCurrent}
                 onClick={() => isUnlocked && onStartGame(zone.id)}
+                progress={v2Progress}
+                skillLevels={skill}
               />
             );
           })}
@@ -213,6 +239,8 @@ function HomeContent({
 function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const zone = getZoneById(currentZoneId);
   const currentPuzzle = useGameStore((s) => s.currentPuzzle);
+  const puzzleId = useGameStore((s) => s.puzzleId);
+  const puzzleStatus = useGameStore((s) => s.puzzleStatus);
   const hintsUsed = useGameStore((s) => s.hintsUsed);
   const startNewPuzzle = useGameStore((s) => s.startNewPuzzle);
   const recordResult = useGameStore((s) => s.recordResult);
@@ -222,6 +250,14 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const puzzlesSinceLastBoss = useProgressStore((s) => s.puzzlesSinceLastBoss);
   const defeatBoss = useProgressStore((s) => s.defeatBoss);
   const recordPuzzleSolved = useProgressStore((s) => s.recordPuzzleSolved);
+
+  // V2 progress tracking
+  const recordPuzzleSolvedV2 = useProgressStore((s) => s.recordPuzzleSolvedV2);
+  const defeatBossV2 = useProgressStore((s) => s.defeatBossV2);
+  const checkZoneMastery = useProgressStore((s) => s.checkZoneMastery);
+  const checkAndUnlockNextZone = useProgressStore((s) => s.checkAndUnlockNextZone);
+  const zoneProgressV2 = useProgressStore((s) => s.zoneProgressV2);
+
   const addXP = usePlayerStore((s) => s.addXP);
   const addCoins = usePlayerStore((s) => s.addCoins);
 
@@ -241,6 +277,9 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const [showBossVictory, setShowBossVictory] = useState(false);
   const [isBossMode, setIsBossMode] = useState(false);
   const [bossRewards, setBossRewards] = useState({ coins: 0, xp: 0 });
+
+  // Zone mastery state
+  const [showZoneMastery, setShowZoneMastery] = useState(false);
 
   // Check if next puzzle should be a boss
   const checkAndStartBoss = () => {
@@ -311,15 +350,16 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   };
 
   // Start a puzzle when entering play mode if none exists and guidance is complete
+  // GUARD: Only start if puzzleStatus is 'idle' (not 'transitioning')
   useEffect(() => {
-    if (!currentPuzzle && !showBossAnnouncement && !showBossVictory && guidanceComplete) {
+    if (puzzleStatus === 'idle' && !currentPuzzle && !showBossAnnouncement && !showBossVictory && guidanceComplete) {
       // Check if it's boss time
       if (!checkAndStartBoss()) {
         startNewPuzzle(undefined, currentZoneId);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory, guidanceComplete]);
+  }, [puzzleStatus, currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory, guidanceComplete]);
 
   const handleBossStart = () => {
     setShowBossAnnouncement(false);
@@ -328,9 +368,13 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
     startNewPuzzle(undefined, currentZoneId, true);
   };
 
-  const handleSolve = (expression: import('@/engine/types').Expression) => {
-    recordResult(expression, hintsUsed);
+  const handleSolve = (expression: import('@/engine/types').Expression, solvedPuzzleId: string) => {
+    // Pass puzzleId to validate against stale results
+    recordResult(expression, hintsUsed, solvedPuzzleId);
     recordPuzzleSolved(currentZoneId);
+
+    // V2 progress tracking
+    recordPuzzleSolvedV2(currentZoneId);
 
     if (isBossMode && zone) {
       // Boss defeated!
@@ -339,32 +383,56 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
       const xpReward = 50 + bossInfo.difficulty * 20;
 
       defeatBoss(currentZoneId);
+      defeatBossV2(currentZoneId); // V2 boss tracking
       addCoins(coinReward, 'boss');
       addXP(xpReward);
 
       setBossRewards({ coins: coinReward, xp: xpReward });
       setIsBossMode(false);
       setShowBossVictory(true);
+
+      // Check for zone mastery after boss defeat
+      const isMastered = checkZoneMastery(currentZoneId);
+      if (isMastered) {
+        // Delay mastery modal to show after boss victory
+        setTimeout(() => {
+          setShowZoneMastery(true);
+          checkAndUnlockNextZone();
+        }, 3000);
+      }
     } else {
-      // Normal puzzle solved - start next after delay
+      // Normal puzzle solved - useEffect will auto-start next puzzle
+      // when puzzleStatus changes to 'idle' (after recordResult clears puzzle)
+      // Add delay via setTimeout to let victory animation play
       setTimeout(() => {
-        if (!checkAndStartBoss()) {
-          startNewPuzzle(undefined, currentZoneId);
+        // The useEffect will detect puzzleStatus === 'idle' and start next puzzle
+        // We just need to trigger boss check here
+        if (checkAndStartBoss()) {
+          // Boss announcement will show - don't start puzzle
+          return;
         }
+        // Otherwise useEffect will handle starting next puzzle
       }, 1500);
     }
   };
 
   const handleBossVictoryContinue = () => {
     setShowBossVictory(false);
-    // Start next regular puzzle
+    // useEffect will auto-start next puzzle when puzzleStatus is 'idle'
+    // startNewPuzzle guards against 'transitioning' state already
     setTimeout(() => startNewPuzzle(undefined, currentZoneId), 500);
+  };
+
+  const handleZoneMasteryContinue = () => {
+    setShowZoneMastery(false);
+    // Continue playing - next puzzle will start automatically
   };
 
   const handleSkip = () => {
     if (!isBossMode) {
       skipPuzzle();
-      startNewPuzzle(undefined, currentZoneId);
+      // useEffect will auto-start next puzzle when puzzleStatus becomes 'idle'
+      // No need to call startNewPuzzle here - it would race with useEffect
     }
     // Can't skip boss puzzles
   };
@@ -395,7 +463,8 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
         </motion.div>
       )}
 
-      {currentPuzzle ? (
+      {/* GUARD: Only render PuzzleBoard when puzzle is fully active */}
+      {puzzleStatus === 'active' && currentPuzzle ? (
         <div className="relative z-10">
           <PuzzleBoard
             puzzle={currentPuzzle}
@@ -458,6 +527,16 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
             operator={currentOperatorIntro}
             zoneNameHe={zone.nameHe}
             onComplete={handleOperatorIntroComplete}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Zone Mastery Modal */}
+      <AnimatePresence>
+        {showZoneMastery && zone && (
+          <ZoneMasteryModal
+            zone={zone}
+            onContinue={handleZoneMasteryContinue}
           />
         )}
       </AnimatePresence>

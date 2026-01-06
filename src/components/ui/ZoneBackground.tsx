@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import type { Zone } from '@/engine/types';
+import type { Zone, ZoneProgressV2, OperatorSkill } from '@/engine/types';
+import { MASTERY_THRESHOLD, PUZZLES_PER_LEVEL } from '@/engine/types';
 
 interface ZoneBackgroundProps {
   zone: Zone;
@@ -137,18 +138,35 @@ export function ZoneBanner({ zone }: { zone: Zone }) {
   );
 }
 
-// Zone selector card
+// Zone selector card with V2 progress display
 export function ZoneCard({
   zone,
   isUnlocked,
   isCurrent,
   onClick,
+  progress,
+  skillLevels,
 }: {
   zone: Zone;
   isUnlocked: boolean;
   isCurrent: boolean;
   onClick: () => void;
+  progress?: ZoneProgressV2;
+  skillLevels?: OperatorSkill;
 }) {
+  // Calculate mastery progress for this zone
+  const masteryProgress = useMemo(() => {
+    if (!skillLevels) return 0;
+    const opSkills = zone.ops.map(op => skillLevels[op] || 0);
+    const avgSkill = opSkills.reduce((sum, s) => sum + s, 0) / opSkills.length;
+    return Math.round(avgSkill * 100);
+  }, [zone.ops, skillLevels]);
+
+  const isMastered = progress?.status === 'mastered';
+  const currentLevel = progress?.currentLevel || 1;
+  const currentLevelProgress = progress?.levels[currentLevel];
+  const puzzlesInLevel = currentLevelProgress?.puzzlesSolved || 0;
+
   return (
     <motion.button
       onClick={onClick}
@@ -161,30 +179,96 @@ export function ZoneCard({
       whileHover={isUnlocked ? { scale: 1.02 } : {}}
       whileTap={isUnlocked ? { scale: 0.98 } : {}}
     >
-      {/* Lock icon for locked zones */}
+      {/* Lock icon for locked zones - V2 message */}
       {!isUnlocked && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-          <span className="text-4xl">🔒</span>
-          <span className="text-sm text-white/70 mt-1">שלב {zone.unlockLevel}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
+          <span className="text-4xl mb-1">🔒</span>
+          <span className="text-xs text-white/70 text-center px-2">
+            השלם את האזור הקודם
+          </span>
         </div>
+      )}
+
+      {/* Mastery badge */}
+      {isMastered && (
+        <motion.div
+          className="absolute top-2 right-2 z-20"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', damping: 10 }}
+        >
+          <span className="text-2xl" title="אזור הושלם">🏆</span>
+        </motion.div>
       )}
 
       <div className="relative z-10 text-white">
         <h4 className="font-bold text-lg">{zone.nameHe}</h4>
         <p className="text-xs text-white/60">{zone.name}</p>
+
+        {/* Operator skill indicators */}
         <div className="flex gap-1 mt-2 justify-end">
-          {zone.ops.map((op) => (
-            <span
-              key={op}
-              className="inline-flex items-center justify-center w-6 h-6 rounded bg-white/20 text-sm font-bold"
-            >
-              {op}
-            </span>
-          ))}
+          {zone.ops.map((op) => {
+            const skill = skillLevels?.[op] || 0;
+            const isOpMastered = skill >= MASTERY_THRESHOLD;
+            return (
+              <div key={op} className="relative">
+                <span
+                  className={`inline-flex items-center justify-center w-6 h-6 rounded text-sm font-bold ${
+                    isOpMastered ? 'bg-green-500/40 ring-1 ring-green-400' : 'bg-white/20'
+                  }`}
+                >
+                  {op}
+                </span>
+                {isOpMastered && (
+                  <span className="absolute -top-1 -right-1 text-[10px]">✓</span>
+                )}
+              </div>
+            );
+          })}
         </div>
+
+        {/* Level progress (only if unlocked and has progress) */}
+        {isUnlocked && progress && (
+          <div className="mt-3 space-y-1">
+            {/* Level indicator */}
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-white/60">
+                {puzzlesInLevel}/{PUZZLES_PER_LEVEL} חידות
+              </span>
+              <span className="text-white/80 font-medium">
+                שלב {currentLevel}
+              </span>
+            </div>
+            {/* Level progress bar */}
+            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-white/60 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${(puzzlesInLevel / PUZZLES_PER_LEVEL) * 100}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+
+            {/* Mastery progress */}
+            <div className="flex items-center justify-between text-xs mt-2">
+              <span className={`${isMastered ? 'text-green-300' : 'text-white/60'}`}>
+                {isMastered ? 'הושלם!' : `${masteryProgress}%`}
+              </span>
+              <span className="text-white/60">שליטה</span>
+            </div>
+            <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${isMastered ? 'bg-green-400' : 'bg-amber-400/60'}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${masteryProgress}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {isCurrent && (
+      {isCurrent && !isMastered && (
         <div className="absolute top-2 left-2 px-2 py-0.5 bg-white/20 rounded-full text-xs text-white">
           נוכחי
         </div>

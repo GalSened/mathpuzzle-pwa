@@ -204,11 +204,44 @@ export interface Zone {
   descriptionHe: string;
 }
 
-// Zone progression tracking
+// Zone progression tracking (V1 - legacy)
 export interface ZoneProgress {
   solved: number;
   total: number;
   bossDefeated: boolean;
+}
+
+// ============== V2 Progress Tracking ==============
+
+// Constants for progress system
+export const MASTERY_THRESHOLD = 0.8;   // 80% skill required for mastery
+export const PUZZLES_PER_LEVEL = 5;     // 5 puzzles = 1 level (boss cycle)
+
+// Level status within a zone
+export type LevelStatus = 'locked' | 'in_progress' | 'completed';
+
+// Zone mastery status
+export type ZoneStatus = 'locked' | 'in_progress' | 'mastered';
+
+// Progress tracking for a single level (5 puzzles)
+export interface LevelProgress {
+  levelNumber: number;           // 1, 2, 3...
+  puzzlesSolved: number;         // 0-5 within this level
+  status: LevelStatus;
+  completedAt?: number;          // Timestamp when level was completed
+  bossDefeatedAt?: number;       // Timestamp when boss was defeated
+}
+
+// V2 Zone progress - comprehensive tracking
+export interface ZoneProgressV2 {
+  zoneId: string;
+  status: ZoneStatus;
+  currentLevel: number;                    // Currently active level number
+  levels: Record<number, LevelProgress>;   // All levels in this zone
+  totalPuzzlesSolved: number;              // Cumulative puzzles solved in zone
+  totalBossesDefeated: number;             // Cumulative bosses defeated in zone
+  masteredAt?: number;                     // Timestamp when zone was mastered
+  unlockedAt?: number;                     // Timestamp when zone was unlocked
 }
 
 // Adaptive config for puzzle generation

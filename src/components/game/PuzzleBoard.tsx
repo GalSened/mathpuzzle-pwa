@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { NumberTile } from '@/components/ui/NumberTile';
@@ -14,7 +14,7 @@ import { evaluateAttempt } from '@/engine/hints';
 
 interface PuzzleBoardProps {
   puzzle: Puzzle;
-  onSolve: (expression: Expression) => void;
+  onSolve: (expression: Expression, puzzleId: string) => void;
   onSkip?: () => void;  // Optional - not shown in boss mode
 }
 
@@ -60,6 +60,16 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
 
   const name = useUserStore((s) => s.name);
   const gender = useUserStore((s) => s.gender);
+
+  // CRITICAL: Reset ALL local state when puzzle changes
+  // Uses puzzle.id to detect puzzle changes (not object reference)
+  useEffect(() => {
+    setBuildState(initState(puzzle));
+    setHintLevel(0);
+    setCurrentHint(null);
+    setFeedback(null);
+    setIsWin(false);
+  }, [puzzle.id]);
 
 
   const handleNumberClick = useCallback((index: number) => {
@@ -125,8 +135,10 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         if (result === puzzle.target) {
           playCorrect();
           setIsWin(true);
+          // Capture puzzle.id for closure to prevent stale reference
+          const solvedPuzzleId = puzzle.id;
           setTimeout(() => {
-            onSolve(createExpression(newSteps, result));
+            onSolve(createExpression(newSteps, result), solvedPuzzleId);
           }, 1000);
         }
 
@@ -223,8 +235,10 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
     if (buildState.currentResult === puzzle.target) {
       playCorrect();
       setIsWin(true);
+      // Capture puzzle.id for closure to prevent stale reference
+      const solvedPuzzleId = puzzle.id;
       setTimeout(() => {
-        onSolve(createExpression(buildState.steps, buildState.currentResult!));
+        onSolve(createExpression(buildState.steps, buildState.currentResult!), solvedPuzzleId);
       }, 1000);
     } else {
       playWrong();

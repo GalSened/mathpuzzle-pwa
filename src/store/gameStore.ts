@@ -148,7 +148,13 @@ interface GameStats {
   byArchetype: Record<PuzzleArchetype, { solved: number; attempted: number }>;
 }
 
+type PuzzleStatus = 'idle' | 'transitioning' | 'active';
+
 interface GameState {
+  // Puzzle identity and status (for atomic transitions)
+  puzzleId: string | null;
+  puzzleStatus: PuzzleStatus;
+
   currentPuzzle: Puzzle | null;
   currentDifficulty: 1 | 2 | 3 | 4 | 5;
   currentZoneId: string | null;
@@ -160,7 +166,7 @@ interface GameState {
   // Actions
   startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => void;
   setZone: (zoneId: string) => void;
-  recordResult: (expression: Expression, hintsUsed: number) => void;
+  recordResult: (expression: Expression, hintsUsed: number, puzzleId?: string) => void;
   skipPuzzle: () => void;
   useHint: () => void;
   resetStats: () => void;
@@ -185,6 +191,10 @@ const initialStats: GameStats = {
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
+      // Puzzle identity and status (for atomic transitions)
+      puzzleId: null,
+      puzzleStatus: 'idle' as PuzzleStatus,
+
       currentPuzzle: null,
       currentDifficulty: 2,
       currentZoneId: 'addlands',
@@ -198,7 +208,16 @@ export const useGameStore = create<GameState>()(
       },
 
       startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => {
-        const { currentDifficulty, currentZoneId, recentResults } = get();
+        const { currentDifficulty, currentZoneId, recentResults, puzzleStatus } = get();
+
+        // GUARD: Prevent double-advance during transitions
+        if (puzzleStatus === 'transitioning') {
+          console.warn('[GameStore] Ignoring startNewPuzzle - transition in progress');
+          return;
+        }
+
+        // Step 1: Lock - enter transitioning state
+        set({ puzzleStatus: 'transitioning', currentPuzzle: null, puzzleId: null });
 
         // Get zone operators
         const effectiveZoneId = zoneId || currentZoneId || 'addlands';
@@ -222,8 +241,11 @@ export const useGameStore = create<GameState>()(
           if (isBossMode) {
             console.log('[DEBUG] Using BOSS addition puzzle (5 numbers)');
             const bossPuzzle = createBossAdditionPuzzle();
+            const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             set({
-              currentPuzzle: bossPuzzle,
+              puzzleId: newPuzzleId,
+              puzzleStatus: 'active',
+              currentPuzzle: { ...bossPuzzle, id: newPuzzleId },
               currentZoneId: effectiveZoneId,
               puzzleStartTime: Date.now(),
               hintsUsed: 0,
@@ -233,8 +255,11 @@ export const useGameStore = create<GameState>()(
           // Normal mode: Use simple 3-number puzzle
           console.log('[DEBUG] Using simple addition puzzle');
           const simplePuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
+          const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           set({
-            currentPuzzle: simplePuzzle,
+            puzzleId: newPuzzleId,
+            puzzleStatus: 'active',
+            currentPuzzle: { ...simplePuzzle, id: newPuzzleId },
             currentZoneId: effectiveZoneId,
             puzzleStartTime: Date.now(),
             hintsUsed: 0,
@@ -263,8 +288,11 @@ export const useGameStore = create<GameState>()(
         }
 
         if (puzzle) {
+          const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           set({
-            currentPuzzle: puzzle,
+            puzzleId: newPuzzleId,
+            puzzleStatus: 'active',
+            currentPuzzle: { ...puzzle, id: newPuzzleId },
             currentZoneId: effectiveZoneId,
             puzzleStartTime: Date.now(),
             hintsUsed: 0,
@@ -278,17 +306,38 @@ export const useGameStore = create<GameState>()(
             fallbackPuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
           }
 
-          set({
-            currentPuzzle: fallbackPuzzle,
-            currentZoneId: effectiveZoneId,
-            puzzleStartTime: fallbackPuzzle ? Date.now() : null,
-            hintsUsed: 0,
-          });
+          if (fallbackPuzzle) {
+            const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            set({
+              puzzleId: newPuzzleId,
+              puzzleStatus: 'active',
+              currentPuzzle: { ...fallbackPuzzle, id: newPuzzleId },
+              currentZoneId: effectiveZoneId,
+              puzzleStartTime: Date.now(),
+              hintsUsed: 0,
+            });
+          } else {
+            // No puzzle could be generated - return to idle
+            console.error('[GameStore] Failed to generate any puzzle');
+            set({
+              puzzleId: null,
+              puzzleStatus: 'idle',
+              currentPuzzle: null,
+              puzzleStartTime: null,
+              hintsUsed: 0,
+            });
+          }
         }
       },
 
-      recordResult: (expression: Expression, hintsUsed: number) => {
-        const { currentPuzzle, puzzleStartTime, recentResults, stats, currentDifficulty } = get();
+      recordResult: (expression: Expression, hintsUsed: number, submittedPuzzleId?: string) => {
+        const { currentPuzzle, puzzleStartTime, recentResults, stats, currentDifficulty, puzzleId } = get();
+
+        // GUARD: Validate puzzle identity to prevent stale results
+        if (submittedPuzzleId && submittedPuzzleId !== puzzleId) {
+          console.warn('[GameStore] Ignoring stale result for puzzle:', submittedPuzzleId, 'current:', puzzleId);
+          return;
+        }
 
         if (!currentPuzzle || !puzzleStartTime) return;
 
@@ -400,6 +449,9 @@ export const useGameStore = create<GameState>()(
           recentResults: newRecentResults,
           stats: newStats,
           currentDifficulty: newDifficulty,
+          // Clear puzzle state atomically
+          puzzleId: null,
+          puzzleStatus: 'idle',
           currentPuzzle: null,
           puzzleStartTime: null,
         });
@@ -432,6 +484,9 @@ export const useGameStore = create<GameState>()(
         set({
           recentResults: newRecentResults,
           stats: newStats,
+          // Clear puzzle state atomically
+          puzzleId: null,
+          puzzleStatus: 'idle',
           currentPuzzle: null,
           puzzleStartTime: null,
         });
@@ -448,6 +503,9 @@ export const useGameStore = create<GameState>()(
           recentResults: [],
           currentDifficulty: 2,
           currentZoneId: 'addlands',
+          // Clear puzzle state
+          puzzleId: null,
+          puzzleStatus: 'idle',
           currentPuzzle: null,
           puzzleStartTime: null,
           hintsUsed: 0,
