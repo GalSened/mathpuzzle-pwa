@@ -6,7 +6,7 @@ import { Lightbulb, RotateCcw, Check, X, Sparkles } from 'lucide-react';
 import { NumberTile } from '@/components/ui/NumberTile';
 import { OperatorPad } from './OperatorPad';
 import { cn } from '@/lib/utils';
-import type { Puzzle, Operator, Expression } from '@/engine/types';
+import type { Puzzle, Operator, Expression, EvaluationStep, ExpressionNode } from '@/engine/types';
 import { generateHint, evaluateAttempt } from '@/engine/hints';
 
 interface PuzzleBoardProps {
@@ -22,8 +22,20 @@ interface BuildState {
   selectedNumber: number | null;
   selectedIndex: number | null;
   pendingOperator: Operator | null;
-  steps: { left: number; op: Operator; right: number; result: number }[];
+  steps: EvaluationStep[];
   currentResult: number | null;
+}
+
+function createExpression(steps: EvaluationStep[], result: number): Expression {
+  // Create a simple tree structure from the steps
+  const tree: ExpressionNode = { type: 'number', value: result };
+  return {
+    notation: steps.map(s => s.notation).join(' → '),
+    tree,
+    result,
+    steps,
+    complexity: steps.length,
+  };
 }
 
 export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
@@ -101,16 +113,20 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           originalIndex: -1
         });
 
-        const newSteps = [...prev.steps, { left, op, right, result }];
+        const stepNotation = `${left} ${op} ${right} = ${result}`;
+        const newStep: EvaluationStep = {
+          left,
+          operator: op,
+          right,
+          result,
+          notation: stepNotation
+        };
+        const newSteps = [...prev.steps, newStep];
 
         if (result === puzzle.target) {
           setIsWin(true);
           setTimeout(() => {
-            onSolve({
-              steps: newSteps,
-              notation: newSteps.map(s => `${s.left}${s.op}${s.right}=${s.result}`).join(' → '),
-              result,
-            });
+            onSolve(createExpression(newSteps, result));
           }, 1000);
         }
 
@@ -166,11 +182,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
     if (buildState.currentResult === puzzle.target) {
       setIsWin(true);
       setTimeout(() => {
-        onSolve({
-          steps: buildState.steps,
-          notation: buildState.steps.map(s => `${s.left}${s.op}${s.right}=${s.result}`).join(' → '),
-          result: buildState.currentResult!,
-        });
+        onSolve(createExpression(buildState.steps, buildState.currentResult!));
       }, 1000);
     } else {
       const attemptFeedback = evaluateAttempt(puzzle, buildState.currentResult);
@@ -181,7 +193,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
 
   const unusedCount = buildState.numbers.filter(n => n.state !== 'used').length;
   const expressionDisplay = buildState.steps.length > 0
-    ? buildState.steps.map(s => `${s.left} ${s.op} ${s.right} = ${s.result}`).join(' → ')
+    ? buildState.steps.map(s => `${s.left} ${s.operator} ${s.right} = ${s.result}`).join(' → ')
     : buildState.selectedNumber !== null
       ? `${buildState.selectedNumber}${buildState.pendingOperator ? ` ${buildState.pendingOperator} ?` : ''}`
       : 'Select a number...';
