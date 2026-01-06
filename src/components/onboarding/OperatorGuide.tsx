@@ -1,13 +1,12 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Sparkles, ArrowLeft, Lightbulb } from 'lucide-react';
 import type { Operator } from '@/engine/types';
 import { he } from '@/lib/i18n';
 
 interface OperatorGuideProps {
   operator: Operator;
-  zoneName: string;
   zoneNameHe: string;
   onComplete: () => void;
 }
@@ -31,7 +30,7 @@ const operatorContent: Record<Exclude<Operator, '+'>, {
   '÷': he.operatorGuide.divide,
 };
 
-export function OperatorGuide({ operator, zoneName, zoneNameHe, onComplete }: OperatorGuideProps) {
+export function OperatorGuide({ operator, zoneNameHe, onComplete }: OperatorGuideProps) {
   // Addition doesn't need a guide (it's the first operator)
   if (operator === '+') {
     onComplete();
@@ -137,14 +136,13 @@ export function OperatorGuide({ operator, zoneName, zoneNameHe, onComplete }: Op
 
 // Zone introduction modal - shows when entering a new zone
 interface ZoneIntroProps {
-  zoneName: string;
   zoneNameHe: string;
   zoneDescription: string;
   newOperators: Operator[];
   onContinue: () => void;
 }
 
-export function ZoneIntro({ zoneName, zoneNameHe, zoneDescription, newOperators, onContinue }: ZoneIntroProps) {
+export function ZoneIntro({ zoneNameHe, zoneDescription, newOperators, onContinue }: ZoneIntroProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}

@@ -8,7 +8,7 @@ import { OperatorPad } from './OperatorPad';
 import { cn } from '@/lib/utils';
 import { he } from '@/lib/i18n';
 import { useUserStore } from '@/store/userStore';
-import { playCorrect, playWrong, playClick } from '@/lib/sounds';
+import { playCorrect, playWrong } from '@/lib/sounds';
 import type { Puzzle, Operator, Expression, EvaluationStep, ExpressionNode } from '@/engine/types';
 import { evaluateAttempt } from '@/engine/hints';
 

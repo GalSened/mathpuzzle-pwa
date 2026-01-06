@@ -30,6 +30,8 @@ export function XPGainNotification({ xpGained, onComplete }: XPGainNotificationP
         amount: xpGained,
         x: Math.random() * 40 - 20,
       };
+      // Intentionally update state in response to prop change (notification pattern)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFloatingXP((prev) => [...prev, newFloating]);
 
       // Remove after animation
@@ -108,6 +110,8 @@ export function CoinGainNotification({ coinsGained, onComplete }: CoinGainNotifi
         amount: coinsGained,
         x: Math.random() * 40 - 20,
       };
+      // Intentionally update state in response to prop change (notification pattern)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFloatingCoins((prev) => [...prev, newFloating]);
 
       // Remove after animation
@@ -159,6 +163,8 @@ export function RewardsNotification({ xp, coins, onComplete }: RewardsNotificati
 
   useEffect(() => {
     if ((xp && xp > 0) || (coins && coins > 0)) {
+      // Intentionally update state in response to prop change (notification pattern)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowing(true);
       const timer = setTimeout(() => {
         setShowing(false);

@@ -220,13 +220,17 @@ export function BossVictory({
 
 // Confetti particles component
 function ConfettiParticles() {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    delay: Math.random() * 2,
-    duration: 2 + Math.random() * 2,
-    emoji: ['🎉', '⭐', '✨', '🏆', '💫', '💚', '💙', '🧡', '💜'][Math.floor(Math.random() * 9)],
-  }));
+  // Use lazy initializer to generate random values only once on mount
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 2,
+      duration: 2 + Math.random() * 2,
+      xDrift: (Math.random() - 0.5) * 100,
+      emoji: ['🎉', '⭐', '✨', '🏆', '💫', '💚', '💙', '🧡', '💜'][Math.floor(Math.random() * 9)],
+    }))
+  );
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -238,7 +242,7 @@ function ConfettiParticles() {
           initial={{ y: -50, opacity: 1 }}
           animate={{
             y: ['0%', '120%'],
-            x: [0, (Math.random() - 0.5) * 100],
+            x: [0, particle.xDrift],
             rotate: [0, 360],
             opacity: [1, 1, 0],
           }}

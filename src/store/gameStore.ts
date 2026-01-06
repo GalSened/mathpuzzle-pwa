@@ -95,7 +95,7 @@ function createBossAdditionPuzzle(): Puzzle {
     runningSum = newSum;
   }
 
-  return {
+  const puzzle: Puzzle = {
     id: `boss-${Date.now()}`,
     numbers: nums,
     availableOperators: ['+'],
@@ -126,6 +126,7 @@ function createBossAdditionPuzzle(): Puzzle {
       estimatedSolveTime: 90
     }
   };
+  return puzzle;
 }
 
 interface PuzzleResult {

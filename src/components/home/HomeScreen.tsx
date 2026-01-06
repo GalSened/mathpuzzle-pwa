@@ -6,7 +6,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useProgressStore } from '@/store/progressStore';
 import { useGameStore } from '@/store/gameStore';
 import { useUserStore } from '@/store/userStore';
-import { getZoneById, ZONES, getBossInfo, isBossPuzzle } from '@/engine/story';
+import { getZoneById, ZONES, getBossInfo } from '@/engine/story';
 import { BossAnnouncement } from '@/components/game/BossAnnouncement';
 import { BossVictory } from '@/components/game/BossVictory';
 import { ZoneBanner, ZoneCard } from '@/components/ui/ZoneBackground';
@@ -443,7 +443,6 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
       <AnimatePresence>
         {showZoneIntro && zone && (
           <ZoneIntro
-            zoneName={zone.name}
             zoneNameHe={zone.nameHe}
             zoneDescription={zone.descriptionHe}
             newOperators={pendingOperatorIntros}
@@ -457,7 +456,6 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
         {currentOperatorIntro && zone && (
           <OperatorGuide
             operator={currentOperatorIntro}
-            zoneName={zone.name}
             zoneNameHe={zone.nameHe}
             onComplete={handleOperatorIntroComplete}
           />
