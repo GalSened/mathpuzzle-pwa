@@ -50,15 +50,23 @@ export class PuzzleGenerator {
   private recentSignatures: string[] = [];
   private recentArchetypes: PuzzleArchetype[] = [];
   private maxRetries = 50;
+  private zoneOperators: Operator[] | null = null;
+
+  // Set zone-specific operators to restrict puzzle generation
+  setZoneOperators(operators: Operator[] | null): void {
+    this.zoneOperators = operators;
+  }
 
   generate(
     archetype: PuzzleArchetype,
-    difficulty: 1 | 2 | 3 | 4 | 5
+    difficulty: 1 | 2 | 3 | 4 | 5,
+    allowedOperators?: Operator[]
   ): Puzzle | null {
     const difficultyProfile = DIFFICULTY_PRESETS[difficulty];
+    const ops = allowedOperators || this.zoneOperators;
 
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
-      const puzzle = this.attemptGeneration(archetype, difficultyProfile);
+      const puzzle = this.attemptGeneration(archetype, difficultyProfile, ops);
 
       if (puzzle && this.validatePuzzle(puzzle)) {
         this.recentSignatures.push(puzzle.signature);
@@ -81,15 +89,17 @@ export class PuzzleGenerator {
 
   generateNext(
     preferredDifficulty: 1 | 2 | 3 | 4 | 5,
-    excludeArchetypes: PuzzleArchetype[] = []
+    excludeArchetypes: PuzzleArchetype[] = [],
+    allowedOperators?: Operator[]
   ): Puzzle | null {
     const archetype = this.selectArchetype(excludeArchetypes);
-    return this.generate(archetype, preferredDifficulty);
+    return this.generate(archetype, preferredDifficulty, allowedOperators);
   }
 
   private attemptGeneration(
     archetype: PuzzleArchetype,
-    difficulty: DifficultyProfile
+    difficulty: DifficultyProfile,
+    zoneOps?: Operator[] | null
   ): Puzzle | null {
     const templates = TEMPLATES[archetype];
     const template = templates[Math.floor(Math.random() * templates.length)];
@@ -97,12 +107,13 @@ export class PuzzleGenerator {
     const { numbers, target } = this.fillTemplate(
       template,
       archetype,
-      difficulty
+      difficulty,
+      zoneOps
     );
 
     if (!numbers || !target) return null;
 
-    const constraints = this.buildConstraints(archetype, difficulty);
+    const constraints = this.buildConstraints(archetype, difficulty, zoneOps);
 
     const allSolutions = solver.findAllSolutions(numbers, target, constraints);
 
@@ -150,7 +161,8 @@ export class PuzzleGenerator {
   private fillTemplate(
     template: string,
     archetype: PuzzleArchetype,
-    difficulty: DifficultyProfile
+    difficulty: DifficultyProfile,
+    zoneOps?: Operator[] | null
   ): { numbers: number[] | null; target: number | null; operators: Operator[] } {
     const numCount = (template.match(/[a-e]/g) || []).length;
     const opCount = numCount - 1;
@@ -158,7 +170,7 @@ export class PuzzleGenerator {
     const targets = NICE_TARGETS[difficulty.level];
     const target = targets[Math.floor(Math.random() * targets.length)];
 
-    const operators = this.selectOperators(archetype, difficulty, opCount);
+    const operators = this.selectOperators(archetype, difficulty, opCount, zoneOps);
 
     const numbers = this.generateNumbersForTarget(
       target,
@@ -288,21 +300,32 @@ export class PuzzleGenerator {
   private selectOperators(
     archetype: PuzzleArchetype,
     difficulty: DifficultyProfile,
-    count: number
+    count: number,
+    zoneOps?: Operator[] | null
   ): Operator[] {
-    const allOps: Operator[] = ['+', '-', '×', '÷'];
+    const allOps: Operator[] = zoneOps || ['+', '-', '×', '÷'];
 
     if (archetype === 'constraint') {
-      const limitedOps = allOps.slice(0, 2);
+      // For constraint archetype, limit to + and - only (if available in zone)
+      const limitedOps = allOps.filter(op => op === '+' || op === '-');
+      const opsToUse = limitedOps.length > 0 ? limitedOps : [allOps[0]];
       return Array(count).fill(null).map(() =>
-        limitedOps[Math.floor(Math.random() * limitedOps.length)]
+        opsToUse[Math.floor(Math.random() * opsToUse.length)]
       );
     }
 
     if (archetype === 'order') {
       const ops: Operator[] = [];
-      ops.push(Math.random() > 0.5 ? '+' : '-');
-      ops.push(Math.random() > 0.5 ? '×' : '÷');
+      // Try to include different operator types if available in zone
+      const addSubOps = allOps.filter(op => op === '+' || op === '-');
+      const mulDivOps = allOps.filter(op => op === '×' || op === '÷');
+
+      if (addSubOps.length > 0) {
+        ops.push(addSubOps[Math.floor(Math.random() * addSubOps.length)]);
+      }
+      if (mulDivOps.length > 0) {
+        ops.push(mulDivOps[Math.floor(Math.random() * mulDivOps.length)]);
+      }
 
       while (ops.length < count) {
         ops.push(allOps[Math.floor(Math.random() * allOps.length)]);
@@ -311,9 +334,10 @@ export class PuzzleGenerator {
       return this.shuffle(ops).slice(0, count);
     }
 
-    const availableOps = difficulty.level >= 3
-      ? allOps
-      : ['+', '-', '×'] as Operator[];
+    // If zone ops provided, use them; otherwise use difficulty-based defaults
+    const availableOps = zoneOps || (difficulty.level >= 3
+      ? ['+', '-', '×', '÷'] as Operator[]
+      : ['+', '-', '×'] as Operator[]);
 
     return Array(count).fill(null).map(() =>
       availableOps[Math.floor(Math.random() * availableOps.length)]
@@ -322,14 +346,30 @@ export class PuzzleGenerator {
 
   private buildConstraints(
     archetype: PuzzleArchetype,
-    difficulty: DifficultyProfile
+    difficulty: DifficultyProfile,
+    zoneOps?: Operator[] | null
   ): PuzzleConstraints {
+    // Determine allowed operators
+    let allowedOps: Operator[];
+    if (zoneOps) {
+      // Use zone operators, but limit to + and - for constraint archetype
+      allowedOps = archetype === 'constraint'
+        ? zoneOps.filter(op => op === '+' || op === '-')
+        : zoneOps;
+      // Ensure at least one operator
+      if (allowedOps.length === 0) {
+        allowedOps = [zoneOps[0]];
+      }
+    } else {
+      allowedOps = archetype === 'constraint'
+        ? ['+', '-'] as Operator[]
+        : ['+', '-', '×', '÷'] as Operator[];
+    }
+
     return {
       mustUseAllNumbers: archetype !== 'decision',
       allowParentheses: difficulty.requiresParentheses,
-      allowedOperators: archetype === 'constraint'
-        ? ['+', '-'] as Operator[]
-        : ['+', '-', '×', '÷'] as Operator[],
+      allowedOperators: allowedOps,
       maxSteps: difficulty.numberCount,
       allowNegativeIntermediates: difficulty.level >= 4,
       allowFractions: false
