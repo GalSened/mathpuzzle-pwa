@@ -7,10 +7,12 @@ interface UserState {
   name: string | null;
   gender: Gender | null;
   hasCompletedOnboarding: boolean;
+  hasSeenPrologue: boolean;
   hasSeenTutorial: boolean;
 
   // Actions
   setUser: (name: string, gender: Gender) => void;
+  completePrologue: () => void;
   completeTutorial: () => void;
   resetUser: () => void;
 }
@@ -21,6 +23,7 @@ export const useUserStore = create<UserState>()(
       name: null,
       gender: null,
       hasCompletedOnboarding: false,
+      hasSeenPrologue: false,
       hasSeenTutorial: false,
 
       setUser: (name: string, gender: Gender) => {
@@ -29,6 +32,10 @@ export const useUserStore = create<UserState>()(
           gender,
           hasCompletedOnboarding: true,
         });
+      },
+
+      completePrologue: () => {
+        set({ hasSeenPrologue: true });
       },
 
       completeTutorial: () => {
@@ -40,6 +47,7 @@ export const useUserStore = create<UserState>()(
           name: null,
           gender: null,
           hasCompletedOnboarding: false,
+          hasSeenPrologue: false,
           hasSeenTutorial: false,
         });
       },

@@ -1,16 +1,45 @@
 import { DifficultyProfile, InsightType } from './types';
 
+/**
+ * Multi-Axis Difficulty System
+ *
+ * Core Principle: Difficulty ≠ Number Count
+ * Real difficulty comes from:
+ * - Solution depth (operation dependencies)
+ * - Error margin (near-miss traps)
+ * - Intuitiveness (human-readable solutions)
+ * - Number count (used sparingly, 5 only for bosses)
+ *
+ * Level Philosophy:
+ * 1. כניסה חלקה (Smooth Entry) - Clear path, high intuitiveness
+ * 2. בחירה נכונה (Right Choice) - Multiple options, one works
+ * 3. תלות בין פעולות (Operation Dependency) - Order matters!
+ * 4. מעבר רך (Soft Transition) - 4 numbers, natural chain
+ * 5. 4 אמיתיים (Real 4s) - Full 4-number challenge
+ */
+
 export const DIFFICULTY_PRESETS: Record<1 | 2 | 3 | 4 | 5, DifficultyProfile> = {
+  // Level 1: כניסה חלקה - "I get it"
+  // 3 numbers, shallow depth, forgiving (high error margin), highly intuitive
   1: {
     level: 1,
-    numberCount: 2,
+    numberCount: 3,
     numberRange: [1, 10],
-    targetRange: [5, 20],
+    targetRange: [5, 30],
     requiresParentheses: false,
     operatorVariety: 2,
     trapCount: 0,
-    insightRequired: 'basic_arithmetic'
+    insightRequired: 'basic_arithmetic',
+    targets: {
+      minDepth: 1,
+      maxDepth: 1,
+      minErrorMargin: 3,      // Forgiving - many near-misses OK
+      maxErrorMargin: 10,
+      minIntuitiveness: 0.8   // Must be obvious
+    }
   },
+  // Level 2: בחירה נכונה - "Let me think"
+  // 3 numbers, can have depth 2, medium error margin, still intuitive
   2: {
     level: 2,
     numberCount: 3,
@@ -19,8 +48,17 @@ export const DIFFICULTY_PRESETS: Record<1 | 2 | 3 | 4 | 5, DifficultyProfile> = 
     requiresParentheses: false,
     operatorVariety: 3,
     trapCount: 1,
-    insightRequired: 'basic_arithmetic'
+    insightRequired: 'basic_arithmetic',
+    targets: {
+      minDepth: 1,
+      maxDepth: 2,
+      minErrorMargin: 2,      // Some traps
+      maxErrorMargin: 5,
+      minIntuitiveness: 0.6   // Reasonably clear
+    }
   },
+  // Level 3: תלות בין פעולות - "Order matters!"
+  // 3 numbers, must have depth 2, low error margin (tricky), medium intuitive
   3: {
     level: 3,
     numberCount: 3,
@@ -29,36 +67,92 @@ export const DIFFICULTY_PRESETS: Record<1 | 2 | 3 | 4 | 5, DifficultyProfile> = 
     requiresParentheses: true,
     operatorVariety: 4,
     trapCount: 2,
-    insightRequired: 'order_of_operations'
+    insightRequired: 'order_of_operations',
+    targets: {
+      minDepth: 2,
+      maxDepth: 2,
+      minErrorMargin: 1,      // Tight - fewer easy outs
+      maxErrorMargin: 3,
+      minIntuitiveness: 0.5   // Can be less obvious
+    }
   },
+  // Level 4: מעבר רך - "More steps, same vibe"
+  // 4 numbers, depth 2, medium error margin, HIGH intuitiveness (gentle 4-number intro)
   4: {
     level: 4,
     numberCount: 4,
     numberRange: [2, 20],
-    targetRange: [30, 120],
+    targetRange: [20, 100],
+    requiresParentheses: true,
+    operatorVariety: 4,
+    trapCount: 2,
+    insightRequired: 'factoring',
+    targets: {
+      minDepth: 2,
+      maxDepth: 2,
+      minErrorMargin: 2,      // Some breathing room
+      maxErrorMargin: 5,
+      minIntuitiveness: 0.7   // Must still feel natural!
+    }
+  },
+  // Level 5: 4 אמיתיים - "Real challenge"
+  // 4 numbers, can reach depth 3, low error margin, medium intuitive
+  5: {
+    level: 5,
+    numberCount: 4,           // Still 4! No 5-number in normal play
+    numberRange: [2, 25],
+    targetRange: [30, 150],
     requiresParentheses: true,
     operatorVariety: 4,
     trapCount: 3,
-    insightRequired: 'factoring'
-  },
-  5: {
-    level: 5,
-    numberCount: 5,
-    numberRange: [2, 25],
-    targetRange: [50, 300],
-    requiresParentheses: true,
-    operatorVariety: 4,
-    trapCount: 4,
-    insightRequired: 'working_backwards'
+    insightRequired: 'working_backwards',
+    targets: {
+      minDepth: 2,
+      maxDepth: 3,
+      minErrorMargin: 1,      // Tight margins
+      maxErrorMargin: 3,
+      minIntuitiveness: 0.5   // Can require insight
+    }
   }
 };
 
 export const DIFFICULTY_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: 'Tutorial',
-  2: 'Easy',
-  3: 'Medium',
-  4: 'Hard',
-  5: 'Expert'
+  1: 'כניסה חלקה',    // Smooth Entry
+  2: 'בחירה נכונה',   // Right Choice
+  3: 'תלות פעולות',   // Operation Dependency
+  4: 'מעבר רך',       // Soft Transition
+  5: 'אתגר אמיתי'     // Real Challenge
+};
+
+// English labels for fallback/debugging
+export const DIFFICULTY_LABELS_EN: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: 'Smooth Entry',
+  2: 'Right Choice',
+  3: 'Order Matters',
+  4: 'Soft Transition',
+  5: 'Real Challenge'
+};
+
+/**
+ * Boss Mode Preset - 5 numbers, reserved for boss battles only
+ * This should NEVER be used in normal progression
+ */
+export const BOSS_DIFFICULTY_PRESET: DifficultyProfile = {
+  level: 5,
+  numberCount: 5,            // 5 numbers ONLY for bosses
+  numberRange: [2, 25],
+  targetRange: [50, 200],
+  requiresParentheses: true,
+  operatorVariety: 4,
+  trapCount: 4,
+  insightRequired: 'working_backwards',
+  targets: {
+    minDepth: 2,
+    maxDepth: 3,
+    minErrorMargin: 1,
+    maxErrorMargin: 2,
+    minIntuitiveness: 0.4    // Can be tricky
+  }
 };
 
 export const INSIGHT_LABELS: Record<InsightType, string> = {

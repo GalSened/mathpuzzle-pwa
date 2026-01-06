@@ -39,6 +39,12 @@ const tutorialSteps: TutorialStep[] = [
     icon: <span className="text-4xl">🎯</span>,
     highlight: 'target',
   },
+  {
+    title: '💡 טיפ חשוב',
+    description: he.tutorialTip,
+    icon: <span className="text-4xl">💡</span>,
+    highlight: 'tip',
+  },
 ];
 
 export function Tutorial() {
@@ -118,7 +124,7 @@ export function Tutorial() {
                 <div className="bg-slate-900/50 rounded-xl p-4">
                   {tutorialSteps[currentStep].highlight === 'numbers' && (
                     <div className="flex justify-center gap-3">
-                      {[3, 4, 2].map((num, i) => (
+                      {[3, 5, 2].map((num, i) => (
                         <motion.div
                           key={num}
                           animate={currentStep === 0 && i === 0 ? { scale: [1, 1.1, 1] } : undefined}
@@ -140,11 +146,11 @@ export function Tutorial() {
                       {['+', '−', '×', '÷'].map((op, i) => (
                         <motion.div
                           key={op}
-                          animate={i === 2 ? { scale: [1, 1.1, 1] } : undefined}
+                          animate={i === 0 ? { scale: [1, 1.1, 1] } : undefined}
                           transition={{ repeat: Infinity, duration: 1.5 }}
                           className={cn(
                             'w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold',
-                            i === 2
+                            i === 0
                               ? 'bg-amber-600 text-white'
                               : 'bg-slate-700 text-slate-300'
                           )}
@@ -162,8 +168,28 @@ export function Tutorial() {
                         transition={{ repeat: Infinity, duration: 2 }}
                         className="text-4xl font-bold text-green-400"
                       >
-                        24
+                        10
                       </motion.div>
+                    </div>
+                  )}
+                  {tutorialSteps[currentStep].highlight === 'tip' && (
+                    <div className="text-center">
+                      <div className="flex justify-center gap-2 mb-3">
+                        {[3, 5, 2].map((num, i) => (
+                          <div
+                            key={num}
+                            className={cn(
+                              'w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold',
+                              i < 2 ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400'
+                            )}
+                          >
+                            {num}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-slate-300 text-sm">
+                        לדוגמה: אם המטרה היא 8, מספיק לחבר 3 + 5
+                      </div>
                     </div>
                   )}
                 </div>
@@ -198,7 +224,7 @@ export function Tutorial() {
                 {/* Target */}
                 <div className="bg-slate-900/50 rounded-xl p-3 mb-4">
                   <div className="text-slate-400 text-sm">{he.target}</div>
-                  <div className="text-3xl font-bold text-amber-400">24</div>
+                  <div className="text-3xl font-bold text-amber-400">10</div>
                 </div>
 
                 {/* Example steps */}

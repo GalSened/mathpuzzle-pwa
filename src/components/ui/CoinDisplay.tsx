@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
+import { playLevelUp, playCoin } from '@/lib/sounds';
 
 interface FloatingCoin {
   id: number;
@@ -41,6 +42,11 @@ export function CoinDisplay({ size = 'md', showLabel = false, className = '' }: 
     prevCoinsRef.current = coins;
 
     if (diff === 0) return;
+
+    // Play coin sound when gaining coins
+    if (diff > 0) {
+      playCoin();
+    }
 
     // Trigger spin animation using animation controls (not setState)
     spinControls.start({
@@ -201,6 +207,9 @@ export function LevelUpModal({ newLevel, onClose }: LevelUpModalProps) {
   const [showRewards, setShowRewards] = useState(false);
 
   useEffect(() => {
+    // Play level up fanfare when modal appears
+    playLevelUp();
+
     const timer = setTimeout(() => setShowRewards(true), 500);
     return () => clearTimeout(timer);
   }, []);

@@ -1,17 +1,26 @@
-// Hebrew translations for MathPuzzle
+// Hebrew translations for MathPuzzle - THE FRACTURED GRID
 export const he = {
   // App
   appName: 'חידות מתמטיקה',
 
+  // Core Narrative (The Fractured Grid)
+  codeRunner: 'Code Runner',
+  theGrid: 'ה־Grid',
+  theFracture: 'השבר',
+  gridEcho: 'Grid Echo',
+  upgradeStation: 'תחנת שדרוג',
+  modules: 'מודולים',
+
   // Onboarding
   welcome: 'ברוכים הבאים!',
-  welcomeSubtitle: 'בואו נכיר אתכם',
+  welcomeSubtitle: 'לפני שאתה נכנס ל־Grid, אנחנו צריכים לדעת מי אתה.',
   enterName: 'איך קוראים לך?',
   namePlaceholder: 'הכנס את שמך',
   selectGender: 'אני...',
   boy: 'בן',
   girl: 'בת',
-  startPlaying: 'בואו נתחיל!',
+  startPlaying: 'הכנס ל־Grid',
+  gridWaiting: (name: string) => `ברוך הבא, ${name}. ה־Grid מחכה.`,
 
   // Tutorial
   tutorialTitle: 'איך משחקים?',
@@ -22,12 +31,13 @@ export const he = {
   tutorialStep3Title: 'בחרו מספר נוסף',
   tutorialStep3Desc: 'לחצו על מספר נוסף לביצוע החישוב',
   tutorialStep4Title: 'הגיעו למטרה!',
-  tutorialStep4Desc: 'המשיכו עד שתגיעו למספר המטרה',
+  tutorialStep4Desc: 'ברגע שהתוצאה שווה למטרה - ניצחתם!',
+  tutorialTip: 'טיפ: לא תמיד צריך להשתמש בכל המספרים',
   tutorialExample: 'דוגמה',
-  tutorialExampleDesc: 'המטרה היא 24. יש לנו: 3, 4, 2',
-  tutorialExampleStep1: '3 × 4 = 12',
-  tutorialExampleStep2: '12 × 2 = 24',
-  tutorialExampleSuccess: 'הגענו ל-24!',
+  tutorialExampleDesc: 'המטרה היא 10. יש לנו: 3, 5, 2',
+  tutorialExampleStep1: '3 + 5 = 8',
+  tutorialExampleStep2: '8 + 2 = 10',
+  tutorialExampleSuccess: 'הגענו ל-10!',
   gotIt: 'הבנתי!',
   skipTutorial: 'דלג על ההדרכה',
 

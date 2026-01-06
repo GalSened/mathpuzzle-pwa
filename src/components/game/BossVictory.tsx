@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Zone } from '@/engine/types';
-import { ZONE_STORIES } from '@/engine/story';
+import { ZONE_STORIES, BOSS_PROFILES } from '@/engine/story';
+import { playBossVictory } from '@/lib/sounds';
 
 interface BossVictoryProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
@@ -13,14 +14,6 @@ interface BossVictoryProps {
   onContinue: () => void;
 }
 
-// Boss visuals per zone (defeated state)
-const BOSS_DEFEATED_VISUALS: Record<string, string> = {
-  addlands: '💀',
-  subcore: '🛡️',
-  multforge: '💨',
-  divvoid: '👻',
-};
-
 export function BossVictory({
   bossInfo,
   zone,
@@ -29,12 +22,23 @@ export function BossVictory({
   onContinue,
 }: BossVictoryProps) {
   const [showRewards, setShowRewards] = useState(false);
+  const [showQuote, setShowQuote] = useState(false);
+
   const victoryText = ZONE_STORIES[zone.id]?.victoryHe || 'הבוס הובס!';
-  const bossVisual = BOSS_DEFEATED_VISUALS[zone.id] || '💀';
+  const bossProfile = BOSS_PROFILES[zone.id];
+  const bossVisual = bossProfile?.defeatedVisual || '💀';
+  const defeatQuote = bossProfile?.defeatQuoteHe || '';
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowRewards(true), 800);
-    return () => clearTimeout(timer);
+    // Play victory fanfare when screen appears
+    playBossVictory();
+
+    const quoteTimer = setTimeout(() => setShowQuote(true), 600);
+    const rewardsTimer = setTimeout(() => setShowRewards(true), 1200);
+    return () => {
+      clearTimeout(quoteTimer);
+      clearTimeout(rewardsTimer);
+    };
   }, []);
 
   return (
@@ -63,17 +67,26 @@ export function BossVictory({
           <span className="text-black font-bold text-lg">🏆 ניצחון!</span>
         </motion.div>
 
-        {/* Boss defeated visual */}
+        {/* Boss defeated visual - transformed to light */}
         <motion.div
           className="relative text-7xl mb-4"
           initial={{ scale: 1.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.3, type: 'spring' }}
         >
-          <motion.span
+          <motion.div
+            className="absolute inset-0 blur-2xl"
+            style={{ backgroundColor: bossProfile?.theme.glow }}
             animate={{
-              rotate: [0, -15, 15, 0],
-              opacity: [1, 0.7, 1],
+              scale: [1, 1.5, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          <motion.span
+            className="relative z-10"
+            animate={{
+              scale: [1, 1.1, 1],
             }}
             transition={{ duration: 2, repeat: Infinity }}
           >
@@ -81,19 +94,40 @@ export function BossVictory({
           </motion.span>
         </motion.div>
 
-        {/* Boss name */}
+        {/* Boss name - defeated */}
         <motion.h2
           className="text-2xl font-bold text-yellow-400 mb-2"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          {bossInfo.nameHe} הובס!
+          {bossInfo.nameHe} שוחרר!
         </motion.h2>
 
-        {/* Story text */}
+        {/* Boss defeat quote - character redemption */}
+        <AnimatePresence>
+          {showQuote && defeatQuote && (
+            <motion.div
+              className="bg-black/40 rounded-lg p-3 mb-4 border border-yellow-500/30"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              transition={{ duration: 0.3 }}
+            >
+              <motion.p
+                className="text-yellow-200 italic text-base"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                {defeatQuote}
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Story text - what happens next */}
         <motion.p
-          className="text-gray-200 mb-6 leading-relaxed"
+          className="text-gray-200 mb-4 leading-relaxed"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
@@ -191,7 +225,7 @@ function ConfettiParticles() {
     x: Math.random() * 100,
     delay: Math.random() * 2,
     duration: 2 + Math.random() * 2,
-    emoji: ['🎉', '⭐', '✨', '🏆', '💫'][Math.floor(Math.random() * 5)],
+    emoji: ['🎉', '⭐', '✨', '🏆', '💫', '💚', '💙', '🧡', '💜'][Math.floor(Math.random() * 9)],
   }));
 
   return (

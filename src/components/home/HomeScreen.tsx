@@ -300,10 +300,12 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
-      {/* Zone background overlay */}
+      {/* Zone background overlay - use inline style for pointer-events to ensure it works */}
       {zone && (
         <div
-          className={`absolute inset-0 bg-gradient-to-b ${zone.theme.background} opacity-20 pointer-events-none z-[-1]`}
+          data-testid="zone-overlay-fix-v2"
+          className={`absolute inset-0 bg-gradient-to-b ${zone.theme.background} opacity-20`}
+          style={{ pointerEvents: 'none', zIndex: -1 }}
         />
       )}
 
@@ -321,11 +323,13 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
       )}
 
       {currentPuzzle ? (
-        <PuzzleBoard
-          puzzle={currentPuzzle}
-          onSolve={handleSolve}
-          onSkip={isBossMode ? undefined : handleSkip}
-        />
+        <div className="relative z-10">
+          <PuzzleBoard
+            puzzle={currentPuzzle}
+            onSolve={handleSolve}
+            onSkip={isBossMode ? undefined : handleSkip}
+          />
+        </div>
       ) : (
         <div className="flex items-center justify-center h-64">
           <motion.div

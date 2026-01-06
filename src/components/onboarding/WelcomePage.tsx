@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User, Sparkles } from 'lucide-react';
 import { useUserStore, Gender } from '@/store/userStore';
 import { he } from '@/lib/i18n';
@@ -10,13 +10,18 @@ import { cn } from '@/lib/utils';
 export function WelcomePage() {
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const setUser = useUserStore((s) => s.setUser);
 
   const canSubmit = name.trim().length >= 2 && gender !== null;
 
   const handleSubmit = () => {
     if (canSubmit && gender) {
-      setUser(name.trim(), gender);
+      setShowConfirmation(true);
+      // Brief confirmation message before transitioning
+      setTimeout(() => {
+        setUser(name.trim(), gender);
+      }, 1500);
     }
   };
 
@@ -140,6 +145,45 @@ export function WelcomePage() {
           <span className="opacity-50">÷</span>
         </motion.div>
       </motion.div>
+
+      {/* Grid Confirmation Overlay */}
+      <AnimatePresence>
+        {showConfirmation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/95 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+              className="text-center"
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="text-6xl mb-6"
+              >
+                ⚡
+              </motion.div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {he.gridWaiting(name.trim())}
+              </h2>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 1.3 }}
+                className="h-1 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full mx-auto max-w-[200px]"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

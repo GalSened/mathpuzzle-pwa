@@ -7,6 +7,7 @@ import { getShopItemsByCategory } from '@/data/shopItems';
 import { useShopStore } from '@/store/shopStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { ItemCard } from './ItemCard';
+import { playPurchase, playWrong, playClick, playCoin } from '@/lib/sounds';
 
 const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'cloak', label: 'גלימות', icon: '🎭' },
@@ -32,8 +33,10 @@ export function ShopPage({ onClose }: ShopPageProps) {
   const handlePurchase = (itemId: string) => {
     const result = buyItem(itemId);
     if (result.success) {
+      playPurchase();
       setPurchaseMessage('🎉 רכישה בוצעה בהצלחה!');
     } else {
+      playWrong();
       setPurchaseMessage(`❌ ${result.error}`);
     }
     setTimeout(() => setPurchaseMessage(null), 2000);
@@ -41,6 +44,7 @@ export function ShopPage({ onClose }: ShopPageProps) {
 
   const handleEquip = (itemId: string, category: ItemCategory) => {
     if (category === 'cloak' || category === 'pet') {
+      playClick();
       const currentlyEquipped = equippedItems[category];
       if (currentlyEquipped === itemId) {
         // Unequip
@@ -55,8 +59,10 @@ export function ShopPage({ onClose }: ShopPageProps) {
   const handleUse = (itemId: string) => {
     const success = useShopStore.getState().consumeItem(itemId);
     if (success) {
+      playCoin();
       setPurchaseMessage('✨ השתמשת בפריט!');
     } else {
+      playWrong();
       setPurchaseMessage('❌ לא ניתן להשתמש בפריט');
     }
     setTimeout(() => setPurchaseMessage(null), 2000);

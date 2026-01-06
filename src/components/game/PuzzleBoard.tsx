@@ -8,6 +8,7 @@ import { OperatorPad } from './OperatorPad';
 import { cn } from '@/lib/utils';
 import { he } from '@/lib/i18n';
 import { useUserStore } from '@/store/userStore';
+import { playCorrect, playWrong, playClick } from '@/lib/sounds';
 import type { Puzzle, Operator, Expression, EvaluationStep, ExpressionNode } from '@/engine/types';
 import { evaluateAttempt } from '@/engine/hints';
 
@@ -92,6 +93,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         }
 
         if (result === null) {
+          playWrong();
           setFeedback(he.invalidOperation);
           setTimeout(() => setFeedback(null), 1500);
           return prev;
@@ -121,6 +123,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         const newSteps = [...prev.steps, newStep];
 
         if (result === puzzle.target) {
+          playCorrect();
           setIsWin(true);
           setTimeout(() => {
             onSolve(createExpression(newSteps, result));
@@ -218,11 +221,13 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
     const userGender = gender || 'boy';
 
     if (buildState.currentResult === puzzle.target) {
+      playCorrect();
       setIsWin(true);
       setTimeout(() => {
         onSolve(createExpression(buildState.steps, buildState.currentResult!));
       }, 1000);
     } else {
+      playWrong();
       const attemptFeedback = evaluateAttempt(puzzle, buildState.currentResult);
       const direction = attemptFeedback.direction === 'too_high' ? `📈 ${he.tooHigh}` : `📉 ${he.tooLow}`;
       setFeedback(`${he.encouragement.tryAgain(userName, userGender)} ${direction}`);

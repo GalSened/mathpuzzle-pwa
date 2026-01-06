@@ -63,6 +63,8 @@ export interface DifficultyProfile {
   operatorVariety: number;
   trapCount: number;
   insightRequired: InsightType;
+  // Multi-axis target metrics for sophisticated difficulty tuning
+  targets?: DifficultyTargets;
 }
 
 export type InsightType =
@@ -72,6 +74,22 @@ export type InsightType =
   | 'distribution'
   | 'elimination'
   | 'working_backwards';
+
+// Multi-axis difficulty metrics for sophisticated puzzle evaluation
+export interface DifficultyMetrics {
+  solutionDepth: number;      // 1-3: How deep is the expression tree dependency chain
+  errorMargin: number;        // 0-5: Count of near-miss solutions (within ±3 of target)
+  intuitiveness: number;      // 0.0-1.0: Pattern readability score (round numbers, clean factors)
+}
+
+// Target ranges for each difficulty level
+export interface DifficultyTargets {
+  minDepth: number;
+  maxDepth: number;
+  minErrorMargin: number;
+  maxErrorMargin: number;
+  minIntuitiveness: number;
+}
 
 export interface PuzzleAttempt {
   expression: string;

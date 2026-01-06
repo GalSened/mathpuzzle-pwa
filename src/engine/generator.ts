@@ -4,11 +4,12 @@ import {
   DifficultyProfile,
   Operator,
   PuzzleConstraints,
-  Expression
+  Expression,
+  DifficultyMetrics
 } from './types';
 import { solver } from './solver';
 import { computeSignature } from './signatures';
-import { DIFFICULTY_PRESETS } from './difficulty';
+import { DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET } from './difficulty';
 
 const NICE_TARGETS: Record<number, number[]> = {
   1: [5, 6, 7, 8, 9, 10, 11, 12, 15, 20],
@@ -94,6 +95,39 @@ export class PuzzleGenerator {
   ): Puzzle | null {
     const archetype = this.selectArchetype(excludeArchetypes);
     return this.generate(archetype, preferredDifficulty, allowedOperators);
+  }
+
+  /**
+   * Generate a boss puzzle with 5 numbers
+   * This is the ONLY way to get 5-number puzzles in the game
+   * Reserved for boss battles and special challenges
+   */
+  generateBossPuzzle(
+    allowedOperators?: Operator[]
+  ): Puzzle | null {
+    const ops = allowedOperators || this.zoneOperators;
+    const archetype: PuzzleArchetype = 'chain'; // Bosses use chain archetype
+
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      const puzzle = this.attemptGeneration(archetype, BOSS_DIFFICULTY_PRESET, ops);
+
+      if (puzzle && this.validatePuzzle(puzzle)) {
+        this.recentSignatures.push(puzzle.signature);
+        this.recentArchetypes.push(archetype);
+
+        if (this.recentSignatures.length > 20) {
+          this.recentSignatures.shift();
+        }
+        if (this.recentArchetypes.length > 10) {
+          this.recentArchetypes.shift();
+        }
+
+        return puzzle;
+      }
+    }
+
+    console.warn(`Failed to generate boss puzzle after ${this.maxRetries} attempts`);
+    return null;
   }
 
   private attemptGeneration(
@@ -380,6 +414,51 @@ export class PuzzleGenerator {
     if (!puzzle.solution) return false;
     if (puzzle.solution.result !== puzzle.target) return false;
     if (!this.validateNumbers(puzzle.numbers, puzzle.difficulty)) return false;
+
+    // Multi-axis metrics validation (if targets defined)
+    if (puzzle.difficulty.targets) {
+      const metrics = solver.calculateMetrics(
+        puzzle.numbers,
+        puzzle.target,
+        puzzle.solution,
+        puzzle.constraints
+      );
+
+      if (!this.validateMetrics(metrics, puzzle.difficulty)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate puzzle metrics against difficulty target ranges
+   */
+  private validateMetrics(
+    metrics: DifficultyMetrics,
+    difficulty: DifficultyProfile
+  ): boolean {
+    const targets = difficulty.targets;
+    if (!targets) return true; // No targets = always valid
+
+    // Check solution depth
+    if (metrics.solutionDepth < targets.minDepth ||
+        metrics.solutionDepth > targets.maxDepth) {
+      return false;
+    }
+
+    // Check error margin (near-miss count)
+    if (metrics.errorMargin < targets.minErrorMargin ||
+        metrics.errorMargin > targets.maxErrorMargin) {
+      return false;
+    }
+
+    // Check intuitiveness score
+    if (metrics.intuitiveness < targets.minIntuitiveness) {
+      return false;
+    }
+
     return true;
   }
 

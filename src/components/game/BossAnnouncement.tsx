@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { Zone } from '@/engine/types';
-import { ZONE_STORIES } from '@/engine/story';
+import { ZONE_STORIES, BOSS_PROFILES } from '@/engine/story';
+import { playBossAppear } from '@/lib/sounds';
 
 interface BossAnnouncementProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
@@ -10,17 +12,17 @@ interface BossAnnouncementProps {
   onStart: () => void;
 }
 
-// Boss visuals per zone
-const BOSS_VISUALS: Record<string, string> = {
-  addlands: '🧙‍♂️',
-  subcore: '🛡️',
-  multforge: '🔥',
-  divvoid: '👑',
-};
-
 export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementProps) {
   const storyText = ZONE_STORIES[zone.id]?.bossIntroHe || 'הבוס מופיע!';
-  const bossVisual = BOSS_VISUALS[zone.id] || '👹';
+  const bossProfile = BOSS_PROFILES[zone.id];
+  const bossVisual = bossProfile?.visual || '👹';
+  const bossTitle = bossProfile?.titleHe || '';
+  const bossTaunt = bossProfile?.tauntHe || '';
+
+  // Play boss appear sound when component mounts
+  useEffect(() => {
+    playBossAppear();
+  }, []);
 
   // Get difficulty stars
   const difficultyStars = '⭐'.repeat(bossInfo.difficulty);
@@ -48,9 +50,9 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
           <span className="text-white font-bold text-sm">⚔️ קרב בוס!</span>
         </motion.div>
 
-        {/* Boss visual */}
+        {/* Boss visual with pulsing glow */}
         <motion.div
-          className="text-8xl mb-4"
+          className="text-8xl mb-2 relative"
           initial={{ scale: 0 }}
           animate={{
             scale: [0, 1.2, 1],
@@ -58,18 +60,39 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
           }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          {bossVisual}
+          <motion.div
+            className="absolute inset-0 blur-xl opacity-50"
+            style={{ backgroundColor: bossProfile?.theme.glow }}
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{ repeat: Infinity, duration: 2 }}
+          />
+          <span className="relative z-10">{bossVisual}</span>
         </motion.div>
 
         {/* Boss name */}
         <motion.h2
-          className="text-3xl font-bold text-white mb-2"
+          className="text-3xl font-bold text-white mb-1"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
           {bossInfo.nameHe}
         </motion.h2>
+
+        {/* Boss title */}
+        {bossTitle && (
+          <motion.p
+            className="text-lg text-gray-300 mb-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.45 }}
+          >
+            {bossTitle}
+          </motion.p>
+        )}
 
         {/* Difficulty indicator */}
         <motion.div
@@ -82,9 +105,9 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
           <span className="text-yellow-400">{difficultyStars}</span>
         </motion.div>
 
-        {/* Story text */}
+        {/* Story text - dramatic intro */}
         <motion.p
-          className="text-gray-200 text-lg mb-6 leading-relaxed"
+          className="text-gray-200 text-lg mb-3 leading-relaxed"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
@@ -92,12 +115,32 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
           {storyText}
         </motion.p>
 
+        {/* Boss taunt - character voice */}
+        {bossTaunt && (
+          <motion.div
+            className="bg-black/40 rounded-lg p-3 mb-4 border border-red-500/30"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.7 }}
+          >
+            <motion.p
+              className="text-red-300 italic text-base"
+              animate={{
+                opacity: [0.7, 1, 0.7],
+              }}
+              transition={{ repeat: Infinity, duration: 3 }}
+            >
+              {bossTaunt}
+            </motion.p>
+          </motion.div>
+        )}
+
         {/* Zone name */}
         <motion.div
           className="text-gray-400 text-sm mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
+          transition={{ delay: 0.75 }}
         >
           {zone.nameHe}
         </motion.div>
