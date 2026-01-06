@@ -479,6 +479,72 @@ export const useProgressStore = create<ProgressState>()(
         currentLevelInZone: state.currentLevelInZone,
         progressVersion: state.progressVersion,
       }),
+      // Migration function to handle upgrading from old storage versions
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Partial<ProgressState>;
+
+        // Migrate from version 0 or 1 (before V2 progress tracking)
+        if (version < 2) {
+          // Build V2 progress from V1 data
+          const migratedV2Progress: Record<string, ZoneProgressV2> = {};
+
+          ZONES.forEach((zone) => {
+            const v1Progress = state.zoneProgress?.[zone.id];
+            const isUnlocked = state.unlockedZones?.includes(zone.id) || zone.id === 'addlands';
+            const bossDefeated = state.bossesDefeated?.includes(zone.id) || false;
+
+            // Calculate levels from V1 puzzles solved
+            const puzzlesSolved = v1Progress?.solved || 0;
+            const completedLevels = Math.floor(puzzlesSolved / PUZZLES_PER_LEVEL);
+            const puzzlesInCurrentLevel = puzzlesSolved % PUZZLES_PER_LEVEL;
+            const currentLevel = completedLevels + 1;
+
+            // Build levels record
+            const levels: Record<number, LevelProgress> = {};
+            for (let i = 1; i <= completedLevels; i++) {
+              levels[i] = {
+                levelNumber: i,
+                puzzlesSolved: PUZZLES_PER_LEVEL,
+                status: 'completed',
+                completedAt: Date.now(),
+              };
+            }
+            // Current level
+            levels[currentLevel] = {
+              levelNumber: currentLevel,
+              puzzlesSolved: puzzlesInCurrentLevel,
+              status: isUnlocked ? 'in_progress' : 'locked',
+            };
+
+            // Determine zone status
+            const status: ZoneStatus = isUnlocked ? 'in_progress' : 'locked';
+
+            migratedV2Progress[zone.id] = {
+              zoneId: zone.id,
+              status,
+              currentLevel,
+              levels,
+              totalPuzzlesSolved: puzzlesSolved,
+              totalBossesDefeated: bossDefeated ? 1 : 0,
+              unlockedAt: isUnlocked ? Date.now() : undefined,
+            };
+          });
+
+          // Calculate global level count
+          const globalLevelCount = Object.values(migratedV2Progress)
+            .reduce((sum, zp) => sum + Math.floor(zp.totalPuzzlesSolved / PUZZLES_PER_LEVEL), 0);
+
+          return {
+            ...state,
+            zoneProgressV2: migratedV2Progress,
+            globalLevelCount,
+            currentLevelInZone: migratedV2Progress[state.currentZoneId || 'addlands']?.currentLevel || 1,
+            progressVersion: 2,
+          };
+        }
+
+        return state;
+      },
     }
   )
 );
