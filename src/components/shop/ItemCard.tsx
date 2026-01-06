@@ -40,13 +40,12 @@ export function ItemCard({
   equipped = false,
   quantity,
 }: ItemCardProps) {
-  const { canBuy, hasItem, getItemQuantity } = useShopStore();
+  const { hasItem, getItemQuantity } = useShopStore();
   const playerCoins = usePlayerStore((s) => s.coins);
   const playerLevel = usePlayerStore((s) => s.level);
 
   const isOwned = owned || hasItem(item.id);
   const ownedQty = quantity ?? getItemQuantity(item.id);
-  const purchaseCheck = canBuy(item.id);
   const canAfford = playerCoins >= item.price;
   const meetsLevel = !item.unlockLevel || playerLevel >= item.unlockLevel;
   const isEquippable = item.category === 'cloak' || item.category === 'pet';

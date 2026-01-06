@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { Zone } from '@/engine/types';
 
@@ -19,23 +19,26 @@ const ZONE_SYMBOLS: Record<string, string[]> = {
 };
 
 // Generate random positions for floating symbols
-function generateSymbolPositions(count: number) {
+function generateSymbolPositions(count: number, seed: string) {
+  // Use zone id as seed for deterministic but varied positions
+  const hashCode = seed.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
+  const seededRandom = (i: number) => {
+    const x = Math.sin(hashCode + i * 1000) * 10000;
+    return x - Math.floor(x);
+  };
+
   return Array.from({ length: count }, (_, i) => ({
     id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    delay: Math.random() * 5,
-    duration: 10 + Math.random() * 10,
-    size: 1 + Math.random() * 1.5,
+    x: seededRandom(i) * 100,
+    y: seededRandom(i + 100) * 100,
+    delay: seededRandom(i + 200) * 5,
+    duration: 10 + seededRandom(i + 300) * 10,
+    size: 1 + seededRandom(i + 400) * 1.5,
   }));
 }
 
 export function ZoneBackground({ zone, isBossMode = false, children }: ZoneBackgroundProps) {
-  const [symbols, setSymbols] = useState<ReturnType<typeof generateSymbolPositions>>([]);
-
-  useEffect(() => {
-    setSymbols(generateSymbolPositions(8));
-  }, [zone.id]);
+  const symbols = useMemo(() => generateSymbolPositions(8, zone.id), [zone.id]);
 
   const patternSymbols = ZONE_SYMBOLS[zone.theme.pattern] || ['+'];
 

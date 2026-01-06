@@ -6,7 +6,7 @@ import type {
   PurchaseResult,
   EquipmentSlot,
 } from '@/engine/shopTypes';
-import { SHOP_ITEMS, getShopItemById } from '@/data/shopItems';
+import { getShopItemById } from '@/data/shopItems';
 import { usePlayerStore } from './playerStore';
 
 interface ShopState {
@@ -22,7 +22,7 @@ interface ShopState {
   buyItem: (itemId: string) => PurchaseResult;
   equipItem: (itemId: string, slot: EquipmentSlot) => boolean;
   unequipItem: (slot: EquipmentSlot) => void;
-  useConsumable: (itemId: string) => boolean;
+  consumeItem: (itemId: string) => boolean;
   hasItem: (itemId: string) => boolean;
   getItemQuantity: (itemId: string) => number;
   canAfford: (price: number) => boolean;
@@ -145,8 +145,6 @@ export const useShopStore = create<ShopState>()(
         const equippedItemId = get().equippedItems[slot];
         if (!equippedItemId) return;
 
-        const item = getShopItemById(equippedItemId);
-
         // Remove from equipped
         set((state) => {
           const newEquipped = { ...state.equippedItems };
@@ -158,7 +156,7 @@ export const useShopStore = create<ShopState>()(
         // based on equipped items check
       },
 
-      useConsumable: (itemId: string): boolean => {
+      consumeItem: (itemId: string): boolean => {
         const item = getShopItemById(itemId);
         if (!item) return false;
 

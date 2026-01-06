@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
 
 interface FloatingCoin {
@@ -22,53 +22,75 @@ export function CoinDisplay({ size = 'md', showLabel = false, className = '' }: 
   const [displayedCoins, setDisplayedCoins] = useState(coins);
   const [floatingCoins, setFloatingCoins] = useState<FloatingCoin[]>([]);
   const prevCoinsRef = useRef(coins);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const spinControls = useAnimationControls();
+
+  // Memoize callbacks for setTimeout to satisfy ESLint
+  const addFloatingCoin = useCallback((coin: FloatingCoin) => {
+    setFloatingCoins((prev) => [...prev, coin]);
+  }, []);
+
+  const removeFloatingCoin = useCallback((coinId: number) => {
+    setFloatingCoins((prev) => prev.filter((c) => c.id !== coinId));
+  }, []);
 
   // Animate coin count changes
   useEffect(() => {
     const prevCoins = prevCoinsRef.current;
     const diff = coins - prevCoins;
+    const startValue = displayedCoins;
     prevCoinsRef.current = coins;
 
     if (diff === 0) return;
 
-    // Add floating coin notification
+    // Trigger spin animation using animation controls (not setState)
+    spinControls.start({
+      rotateY: [0, 180, 360],
+      transition: { duration: 0.5 }
+    });
+
+    // Add floating coin notification via setTimeout (async, not sync in effect)
+    let floatTimeout: NodeJS.Timeout | undefined;
+    let removeTimeout: NodeJS.Timeout | undefined;
     if (diff > 0) {
       const newFloatingCoin: FloatingCoin = {
         id: Date.now(),
         amount: diff,
-        x: Math.random() * 20 - 10, // Random offset
+        x: Math.random() * 20 - 10,
         y: 0,
       };
-      setFloatingCoins((prev) => [...prev, newFloatingCoin]);
+      // Use setTimeout to make the setState async
+      floatTimeout = setTimeout(() => addFloatingCoin(newFloatingCoin), 0);
 
       // Remove after animation
-      setTimeout(() => {
-        setFloatingCoins((prev) => prev.filter((c) => c.id !== newFloatingCoin.id));
-      }, 1500);
+      removeTimeout = setTimeout(() => removeFloatingCoin(newFloatingCoin.id), 1500);
     }
 
     // Animate count
     const duration = 500;
     const startTime = Date.now();
-    const startValue = displayedCoins;
+    let animationFrame: number;
 
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Easing function
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(startValue + (coins - startValue) * eased);
 
       setDisplayedCoins(current);
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        animationFrame = requestAnimationFrame(animate);
       }
     };
 
-    requestAnimationFrame(animate);
-  }, [coins]);
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      if (floatTimeout) clearTimeout(floatTimeout);
+      if (removeTimeout) clearTimeout(removeTimeout);
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [coins, spinControls, addFloatingCoin, removeFloatingCoin, displayedCoins]);
 
   const sizeClasses = {
     sm: 'text-sm px-2 py-1',
@@ -83,17 +105,14 @@ export function CoinDisplay({ size = 'md', showLabel = false, className = '' }: 
   };
 
   return (
-    <div ref={containerRef} className={`relative inline-flex ${className}`}>
+    <div className={`relative inline-flex ${className}`}>
       <motion.div
         className={`flex items-center gap-1.5 bg-gradient-to-r from-yellow-900/60 to-amber-900/60 rounded-full border border-yellow-500/50 ${sizeClasses[size]}`}
         whileTap={{ scale: 0.95 }}
       >
         <motion.span
           className={iconSizes[size]}
-          animate={{
-            rotateY: coins !== prevCoinsRef.current ? [0, 180, 360] : 0,
-          }}
-          transition={{ duration: 0.5 }}
+          animate={spinControls}
         >
           💰
         </motion.span>

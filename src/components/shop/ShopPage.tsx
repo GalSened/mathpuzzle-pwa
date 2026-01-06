@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ItemCategory } from '@/engine/shopTypes';
-import { SHOP_ITEMS, getShopItemsByCategory } from '@/data/shopItems';
+import { getShopItemsByCategory } from '@/data/shopItems';
 import { useShopStore } from '@/store/shopStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { ItemCard } from './ItemCard';
@@ -53,7 +53,7 @@ export function ShopPage({ onClose }: ShopPageProps) {
   };
 
   const handleUse = (itemId: string) => {
-    const success = useShopStore.getState().useConsumable(itemId);
+    const success = useShopStore.getState().consumeItem(itemId);
     if (success) {
       setPurchaseMessage('✨ השתמשת בפריט!');
     } else {

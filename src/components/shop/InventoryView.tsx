@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ItemCategory, EquipmentSlot } from '@/engine/shopTypes';
-import { getShopItemById } from '@/data/shopItems';
+import type { ItemCategory } from '@/engine/shopTypes';
 import { useShopStore, useOwnedItems, useEquippedCloak, useEquippedPet } from '@/store/shopStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { ItemCard } from './ItemCard';
@@ -22,7 +21,7 @@ export function InventoryView({ onClose }: InventoryViewProps) {
   const [activeTab, setActiveTab] = useState<'equipped' | 'all' | 'consumables'>('equipped');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const { equipItem, unequipItem, useConsumable, equippedItems, inventory } = useShopStore();
+  const { equipItem, unequipItem, consumeItem, equippedItems } = useShopStore();
   const equippedCloak = useEquippedCloak();
   const equippedPet = useEquippedPet();
   const ownedItems = useOwnedItems();
@@ -47,7 +46,7 @@ export function InventoryView({ onClose }: InventoryViewProps) {
   };
 
   const handleUse = (itemId: string) => {
-    const success = useConsumable(itemId);
+    const success = consumeItem(itemId);
     if (success) {
       showMessage('✨ השתמשת בפריט!');
     } else {
@@ -242,7 +241,7 @@ export function InventoryView({ onClose }: InventoryViewProps) {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-gray-400">סה״כ פריטים: </span>
-            <span className="text-white">{inventory.length}</span>
+            <span className="text-white">{ownedItems.length}</span>
           </div>
           <div>
             <span className="text-gray-400">פריטים מצוידים: </span>

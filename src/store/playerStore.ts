@@ -23,6 +23,8 @@ const COIN_REWARDS: Record<CoinSource, number> = {
 };
 
 interface PlayerStore extends PlayerState {
+  // Level-up notification (set when level increases, cleared when modal shown)
+  pendingLevelUp: number | null;
   // Actions
   updateSkill: (op: Operator, success: boolean) => void;
   addXP: (amount: number) => void;
@@ -37,6 +39,7 @@ interface PlayerStore extends PlayerState {
   updateDailyStreak: () => void;
   incrementPuzzlesSolved: () => void;
   getSkillMultiplier: (op: Operator) => number;
+  clearPendingLevelUp: () => void;
   resetPlayer: () => void;
 }
 
@@ -65,6 +68,7 @@ export const usePlayerStore = create<PlayerStore>()(
   persist(
     (set, get) => ({
       ...initialState,
+      pendingLevelUp: null,
 
       updateSkill: (op: Operator, success: boolean) => {
         set((state) => {
@@ -92,6 +96,7 @@ export const usePlayerStore = create<PlayerStore>()(
           let newXP = state.xp + actualXP;
           let newLevel = state.level;
           let newXPToNext = state.xpToNextLevel;
+          const oldLevel = state.level;
 
           // Level up loop
           while (newXP >= newXPToNext && newLevel < 100) {
@@ -104,6 +109,8 @@ export const usePlayerStore = create<PlayerStore>()(
             xp: newXP,
             level: newLevel,
             xpToNextLevel: newXPToNext,
+            // Set pendingLevelUp if level increased
+            pendingLevelUp: newLevel > oldLevel ? newLevel : state.pendingLevelUp,
           };
         });
       },
@@ -226,8 +233,12 @@ export const usePlayerStore = create<PlayerStore>()(
         return Math.min(1, baseSkill + skillBoost);
       },
 
+      clearPendingLevelUp: () => {
+        set({ pendingLevelUp: null });
+      },
+
       resetPlayer: () => {
-        set(initialState);
+        set({ ...initialState, pendingLevelUp: null });
       },
     }),
     {

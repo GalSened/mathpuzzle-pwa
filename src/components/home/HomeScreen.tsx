@@ -18,13 +18,13 @@ interface HomeScreenProps {
 
 export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-  const [levelUpLevel, setLevelUpLevel] = useState(1);
 
   const level = usePlayerStore((s) => s.level);
   const dailyStreak = usePlayerStore((s) => s.dailyStreak);
   const skill = usePlayerStore((s) => s.skill);
   const totalPuzzlesSolved = usePlayerStore((s) => s.totalPuzzlesSolved);
+  const pendingLevelUp = usePlayerStore((s) => s.pendingLevelUp);
+  const clearPendingLevelUp = usePlayerStore((s) => s.clearPendingLevelUp);
 
   const currentZoneId = useProgressStore((s) => s.currentZoneId);
   const unlockedZones = useProgressStore((s) => s.unlockedZones);
@@ -37,16 +37,6 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   useEffect(() => {
     checkZoneUnlocks();
   }, [level, checkZoneUnlocks]);
-
-  // Track level changes for level-up modal
-  const [prevLevel, setPrevLevel] = useState(level);
-  useEffect(() => {
-    if (level > prevLevel) {
-      setLevelUpLevel(level);
-      setShowLevelUp(true);
-      setPrevLevel(level);
-    }
-  }, [level, prevLevel]);
 
   const handleZoneSelect = (zoneId: string) => {
     setCurrentZone(zoneId);
@@ -67,7 +57,6 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
           <HomeContent
             currentZone={currentZone}
             unlockedZones={unlockedZones}
-            onZoneSelect={handleZoneSelect}
             onStartGame={handleStartGame}
             dailyStreak={dailyStreak}
             skill={skill}
@@ -109,10 +98,10 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
 
       {/* Level Up Modal */}
       <AnimatePresence>
-        {showLevelUp && (
+        {pendingLevelUp !== null && (
           <LevelUpModal
-            newLevel={levelUpLevel}
-            onClose={() => setShowLevelUp(false)}
+            newLevel={pendingLevelUp}
+            onClose={clearPendingLevelUp}
           />
         )}
       </AnimatePresence>
@@ -124,7 +113,6 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
 interface HomeContentProps {
   currentZone: ReturnType<typeof getZoneById>;
   unlockedZones: string[];
-  onZoneSelect: (zoneId: string) => void;
   onStartGame: (zoneId?: string) => void;
   dailyStreak: number;
   skill: { '+': number; '-': number; '×': number; '÷': number };
@@ -134,7 +122,6 @@ interface HomeContentProps {
 function HomeContent({
   currentZone,
   unlockedZones,
-  onZoneSelect,
   onStartGame,
   dailyStreak,
   skill,
