@@ -137,15 +137,30 @@ export const useGameStore = create<GameState>()(
 
         // Adjust difficulty based on recent performance
         const recent10 = newRecentResults.slice(-10);
-        const newDifficulty = adjustDifficulty(
-          currentDifficulty,
-          recent10.map(r => ({
-            solved: r.solved,
-            timeMs: r.timeMs,
-            hintsUsed: r.hintsUsed,
-            difficulty: r.difficulty as 1 | 2 | 3 | 4 | 5,
-          }))
-        );
+
+        // Calculate PerformanceMetrics from recent results
+        const solvedCount = recent10.filter(r => r.solved).length;
+        const totalHints = recent10.reduce((sum, r) => sum + r.hintsUsed, 0);
+        const solvedTimes = recent10.filter(r => r.solved).map(r => r.timeMs / 1000);
+        const avgSolveTime = solvedTimes.length > 0
+          ? solvedTimes.reduce((a, b) => a + b, 0) / solvedTimes.length
+          : 60;
+
+        // Calculate streak from recent results (consecutive solves at end)
+        let streak = 0;
+        for (let i = recent10.length - 1; i >= 0; i--) {
+          if (recent10[i].solved) streak++;
+          else break;
+        }
+
+        const metrics = {
+          recentSolveRate: recent10.length > 0 ? solvedCount / recent10.length : 0,
+          averageSolveTime: avgSolveTime,
+          averageHintsUsed: recent10.length > 0 ? totalHints / recent10.length : 0,
+          recentStreak: streak,
+        };
+
+        const newDifficulty = adjustDifficulty(currentDifficulty, metrics);
 
         set({
           recentResults: newRecentResults,
