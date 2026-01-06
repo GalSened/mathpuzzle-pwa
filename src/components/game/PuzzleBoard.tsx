@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, RotateCcw, Check, X, Sparkles } from 'lucide-react';
+import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { NumberTile } from '@/components/ui/NumberTile';
 import { OperatorPad } from './OperatorPad';
 import { cn } from '@/lib/utils';
+import { he } from '@/lib/i18n';
+import { useUserStore } from '@/store/userStore';
 import type { Puzzle, Operator, Expression, EvaluationStep, ExpressionNode } from '@/engine/types';
 import { generateHint, evaluateAttempt } from '@/engine/hints';
 
@@ -27,7 +29,6 @@ interface BuildState {
 }
 
 function createExpression(steps: EvaluationStep[], result: number): Expression {
-  // Create a simple tree structure from the steps
   const tree: ExpressionNode = { type: 'number', value: result };
   return {
     notation: steps.map(s => s.notation).join(' → '),
@@ -44,6 +45,9 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
   const [currentHint, setCurrentHint] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isWin, setIsWin] = useState(false);
+
+  const name = useUserStore((s) => s.name);
+  const gender = useUserStore((s) => s.gender);
 
   useEffect(() => {
     setBuildState(initState(puzzle));
@@ -95,7 +99,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         }
 
         if (result === null) {
-          setFeedback('Invalid operation!');
+          setFeedback(he.invalidOperation);
           setTimeout(() => setFeedback(null), 1500);
           return prev;
         }
@@ -172,12 +176,53 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
     if (hintLevel >= 4) return;
     const newLevel = (hintLevel + 1) as 1 | 2 | 3 | 4;
     setHintLevel(newLevel);
-    const hint = generateHint(puzzle, buildState.currentResult, newLevel);
-    setCurrentHint(hint.message);
-  }, [hintLevel, puzzle, buildState.currentResult]);
+
+    // Generate Hebrew hint based on level
+    const userName = name || 'חבר';
+    const userGender = gender || 'boy';
+
+    let hintMessage = '';
+
+    if (newLevel === 1) {
+      const delta = puzzle.target - (buildState.currentResult || 0);
+      if (delta > 0) {
+        hintMessage = he.hints.level1.higher(userName, userGender);
+      } else if (delta < 0) {
+        hintMessage = he.hints.level1.lower(userName, userGender);
+      } else {
+        hintMessage = he.hints.level1.onTrack(userName, userGender);
+      }
+    } else if (newLevel === 2) {
+      // Suggest operator based on target
+      if (puzzle.target > 50) {
+        hintMessage = he.hints.level2.useMultiplication;
+      } else if (puzzle.target < 10) {
+        hintMessage = he.hints.level2.useDivision;
+      } else {
+        hintMessage = he.hints.level2.orderMatters;
+      }
+    } else if (newLevel === 3) {
+      // Suggest first number from solution
+      const firstStep = puzzle.solution.steps[0];
+      if (firstStep) {
+        hintMessage = he.hints.level3.startWith(firstStep.left);
+      }
+    } else if (newLevel === 4) {
+      // Reveal first step
+      const firstStep = puzzle.solution.steps[0];
+      if (firstStep) {
+        hintMessage = he.hints.level4.firstStep(firstStep.notation);
+      }
+    }
+
+    setCurrentHint(hintMessage);
+  }, [hintLevel, puzzle, buildState.currentResult, name, gender]);
 
   const handleCheck = useCallback(() => {
     if (buildState.currentResult === null) return;
+
+    const userName = name || 'חבר';
+    const userGender = gender || 'boy';
 
     if (buildState.currentResult === puzzle.target) {
       setIsWin(true);
@@ -186,20 +231,20 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
       }, 1000);
     } else {
       const attemptFeedback = evaluateAttempt(puzzle, buildState.currentResult);
-      setFeedback(`${attemptFeedback.encouragement} ${attemptFeedback.direction === 'too_high' ? '📈 Too high!' : '📉 Too low!'}`);
+      const direction = attemptFeedback.direction === 'too_high' ? `📈 ${he.tooHigh}` : `📉 ${he.tooLow}`;
+      setFeedback(`${he.encouragement.tryAgain(userName, userGender)} ${direction}`);
       setTimeout(() => setFeedback(null), 2000);
     }
-  }, [buildState, puzzle, onSolve]);
+  }, [buildState, puzzle, onSolve, name, gender]);
 
-  const unusedCount = buildState.numbers.filter(n => n.state !== 'used').length;
   const expressionDisplay = buildState.steps.length > 0
-    ? buildState.steps.map(s => `${s.left} ${s.operator} ${s.right} = ${s.result}`).join(' → ')
+    ? buildState.steps.map(s => `${s.left} ${s.operator} ${s.right} = ${s.result}`).join(' ← ')
     : buildState.selectedNumber !== null
       ? `${buildState.selectedNumber}${buildState.pendingOperator ? ` ${buildState.pendingOperator} ?` : ''}`
-      : 'Select a number...';
+      : he.selectNumber;
 
   return (
-    <div className="flex flex-col gap-6 p-4 max-w-md mx-auto">
+    <div className="flex flex-col gap-6 p-4 max-w-md mx-auto" dir="rtl">
       {/* Target Display */}
       <motion.div
         className={cn(
@@ -211,7 +256,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         animate={isWin ? { scale: [1, 1.05, 1] } : undefined}
         transition={{ duration: 0.5, repeat: isWin ? 2 : 0 }}
       >
-        <div className="text-slate-400 text-sm mb-1">Target</div>
+        <div className="text-slate-400 text-sm mb-1">{he.target}</div>
         <div className={cn(
           'text-5xl font-bold',
           isWin ? 'text-green-400' : 'text-white'
@@ -225,7 +270,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
             className="flex items-center justify-center gap-2 mt-2 text-green-400"
           >
             <Sparkles className="w-5 h-5" />
-            <span>Perfect!</span>
+            <span>{he.perfect}</span>
             <Sparkles className="w-5 h-5" />
           </motion.div>
         )}
@@ -233,12 +278,12 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
 
       {/* Expression Display */}
       <div className="bg-slate-900 rounded-xl p-4 min-h-[60px] border border-slate-700">
-        <div className="text-slate-300 text-center font-mono">
+        <div className="text-slate-300 text-center font-mono" dir="ltr">
           {expressionDisplay}
         </div>
         {buildState.currentResult !== null && (
           <div className="text-center mt-2">
-            <span className="text-slate-500">Current: </span>
+            <span className="text-slate-500">{he.currentResult} </span>
             <span className={cn(
               'font-bold text-xl',
               buildState.currentResult === puzzle.target ? 'text-green-400' : 'text-amber-400'
@@ -278,7 +323,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white"
         >
           <RotateCcw className="w-4 h-4" />
-          Reset
+          {he.reset}
         </motion.button>
 
         <motion.button
@@ -292,7 +337,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           )}
         >
           <Lightbulb className="w-4 h-4" />
-          Hint ({4 - hintLevel})
+          {he.hint} ({4 - hintLevel})
         </motion.button>
 
         <motion.button
@@ -308,7 +353,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           )}
         >
           <Check className="w-4 h-4" />
-          Check
+          {he.check}
         </motion.button>
       </div>
 
@@ -318,7 +363,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           onClick={onSkip}
           className="text-slate-500 hover:text-slate-400 text-sm underline"
         >
-          Skip this puzzle
+          {he.skip}
         </button>
       </div>
 
@@ -338,13 +383,6 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Debug Info (development only) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-slate-600 text-center">
-          Archetype: {puzzle.archetype} | Difficulty: {puzzle.difficulty.level} | Numbers left: {unusedCount}
-        </div>
-      )}
     </div>
   );
 }

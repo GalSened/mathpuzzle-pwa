@@ -1,10 +1,21 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Trophy, Flame, Target, Clock } from 'lucide-react';
+import { Trophy, Flame, Target, Clock, User } from 'lucide-react';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
+import { WelcomePage } from '@/components/onboarding/WelcomePage';
+import { Tutorial } from '@/components/onboarding/Tutorial';
 import { useGameStore } from '@/store/gameStore';
-import { DIFFICULTY_LABELS } from '@/engine/difficulty';
+import { useUserStore } from '@/store/userStore';
+import { he } from '@/lib/i18n';
+
+const DIFFICULTY_LABELS_HE: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: he.tutorial,
+  2: he.easy,
+  3: he.medium,
+  4: he.hard,
+  5: he.expert,
+};
 
 export default function Home() {
   const {
@@ -14,15 +25,30 @@ export default function Home() {
     startNewPuzzle,
     recordResult,
     skipPuzzle,
-    useHint,
     hintsUsed
   } = useGameStore();
 
+  const {
+    name,
+    hasCompletedOnboarding,
+    hasSeenTutorial,
+  } = useUserStore();
+
   useEffect(() => {
-    if (!currentPuzzle) {
+    if (hasCompletedOnboarding && hasSeenTutorial && !currentPuzzle) {
       startNewPuzzle();
     }
-  }, [currentPuzzle, startNewPuzzle]);
+  }, [currentPuzzle, startNewPuzzle, hasCompletedOnboarding, hasSeenTutorial]);
+
+  // Show onboarding if not completed
+  if (!hasCompletedOnboarding) {
+    return <WelcomePage />;
+  }
+
+  // Show tutorial if not seen
+  if (!hasSeenTutorial) {
+    return <Tutorial />;
+  }
 
   const handleSolve = (expression: Parameters<typeof recordResult>[0]) => {
     recordResult(expression, hintsUsed);
@@ -36,20 +62,28 @@ export default function Home() {
 
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 60) return `${seconds}${he.avgTime.includes('שניות') ? '' : 's'}`;
     return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" dir="rtl">
       {/* Header Stats Bar */}
       <header className="glass sticky top-0 z-10 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">MathPuzzle</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-white">{he.appName}</h1>
+            {name && (
+              <span className="text-sm text-purple-400 flex items-center gap-1">
+                <User className="w-3 h-3" />
+                {name}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1 text-amber-400">
               <Target className="w-4 h-4" />
-              <span>{DIFFICULTY_LABELS[currentDifficulty]}</span>
+              <span>{DIFFICULTY_LABELS_HE[currentDifficulty]}</span>
             </div>
             <div className="flex items-center gap-1 text-orange-400">
               <Flame className="w-4 h-4" />
@@ -73,7 +107,7 @@ export default function Home() {
           />
         ) : (
           <div className="flex items-center justify-center h-64">
-            <div className="text-slate-400">Loading puzzle...</div>
+            <div className="text-slate-400">טוען חידה...</div>
           </div>
         )}
       </main>
@@ -83,13 +117,13 @@ export default function Home() {
         <div className="max-w-md mx-auto flex items-center justify-between text-sm text-slate-400">
           <div className="flex items-center gap-1">
             <Clock className="w-4 h-4" />
-            <span>Avg: {formatTime(stats.averageTime)}</span>
+            <span>{he.avgTime} {formatTime(stats.averageTime)}</span>
           </div>
           <div>
-            {stats.totalSolved}/{stats.totalAttempted} solved
+            {stats.totalSolved}/{stats.totalAttempted} {he.solved}
           </div>
           <div>
-            Best: {stats.bestStreak} streak
+            {he.bestStreak} {stats.bestStreak}
           </div>
         </div>
       </footer>
