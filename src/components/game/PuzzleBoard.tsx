@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { NumberTile } from '@/components/ui/NumberTile';
@@ -62,14 +62,17 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
   const gender = useUserStore((s) => s.gender);
 
   // CRITICAL: Reset ALL local state when puzzle changes
-  // Uses puzzle.id to detect puzzle changes (not object reference)
-  useEffect(() => {
+  // Uses React 18+ pattern: track previous prop and reset in render
+  // See: https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes
+  const [prevPuzzleId, setPrevPuzzleId] = useState(puzzle.id);
+  if (prevPuzzleId !== puzzle.id) {
+    setPrevPuzzleId(puzzle.id);
     setBuildState(initState(puzzle));
     setHintLevel(0);
     setCurrentHint(null);
     setFeedback(null);
     setIsWin(false);
-  }, [puzzle.id]);
+  }
 
 
   const handleNumberClick = useCallback((index: number) => {
@@ -165,7 +168,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         selectedIndex: index,
       };
     });
-  }, [puzzle.target, onSolve]);
+  }, [puzzle.id, puzzle.target, onSolve]);
 
   const handleOperatorSelect = useCallback((op: Operator) => {
     setBuildState(prev => {

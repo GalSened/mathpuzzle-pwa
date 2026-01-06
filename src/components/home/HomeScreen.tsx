@@ -239,7 +239,6 @@ function HomeContent({
 function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const zone = getZoneById(currentZoneId);
   const currentPuzzle = useGameStore((s) => s.currentPuzzle);
-  const puzzleId = useGameStore((s) => s.puzzleId);
   const puzzleStatus = useGameStore((s) => s.puzzleStatus);
   const hintsUsed = useGameStore((s) => s.hintsUsed);
   const startNewPuzzle = useGameStore((s) => s.startNewPuzzle);
@@ -256,7 +255,6 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const defeatBossV2 = useProgressStore((s) => s.defeatBossV2);
   const checkZoneMastery = useProgressStore((s) => s.checkZoneMastery);
   const checkAndUnlockNextZone = useProgressStore((s) => s.checkAndUnlockNextZone);
-  const zoneProgressV2 = useProgressStore((s) => s.zoneProgressV2);
 
   const addXP = usePlayerStore((s) => s.addXP);
   const addCoins = usePlayerStore((s) => s.addCoins);

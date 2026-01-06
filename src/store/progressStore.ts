@@ -245,7 +245,7 @@ export const useProgressStore = create<ProgressState>()(
           };
 
           // If level complete, prepare next level
-          let newLevels = { ...zoneProgress.levels, [currentLevelNum]: updatedLevel };
+          const newLevels: Record<number, LevelProgress> = { ...zoneProgress.levels, [currentLevelNum]: updatedLevel };
           let newCurrentLevel = currentLevelNum;
           let newGlobalCount = state.globalLevelCount;
 
@@ -401,7 +401,7 @@ export const useProgressStore = create<ProgressState>()(
         // Build V2 progress from V1 data
         const migratedV2Progress: Record<string, ZoneProgressV2> = {};
 
-        ZONES.forEach((zone, index) => {
+        ZONES.forEach((zone) => {
           const v1Progress = state.zoneProgress[zone.id];
           const isUnlocked = state.unlockedZones.includes(zone.id);
           const bossDefeated = state.bossesDefeated.includes(zone.id);
