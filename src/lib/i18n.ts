@@ -118,6 +118,57 @@ export const he = {
     brilliant: (name: string, gender: 'boy' | 'girl') =>
       gender === 'girl' ? `מבריקה ${name}!` : `מבריק ${name}!`,
   },
+
+  // Operator Guide - New operator introductions
+  operatorGuide: {
+    newAbility: 'יכולת חדשה!',
+    unlocked: 'נפתח!',
+    letsLearn: 'בואו נלמד איך להשתמש',
+    gotIt: 'הבנתי!',
+    tryIt: 'בוא ננסה!',
+
+    // Operator introductions
+    subtract: {
+      title: 'חיסור',
+      symbol: '−',
+      description: 'עכשיו אפשר להקטין מספרים! חיסור עוזר להגיע למטרות נמוכות יותר.',
+      example: 'דוגמה: 10 − 3 = 7',
+      tip: 'טיפ: סדר חשוב! 10 − 3 זה לא אותו דבר כמו 3 − 10',
+    },
+    multiply: {
+      title: 'כפל',
+      symbol: '×',
+      description: 'כפל מכפיל מספרים! זה דרך מהירה להגיע למספרים גדולים.',
+      example: 'דוגמה: 4 × 3 = 12',
+      tip: 'טיפ: כפל ב-2 זה כמו לחבר מספר לעצמו',
+    },
+    divide: {
+      title: 'חילוק',
+      symbol: '÷',
+      description: 'חילוק מפצל מספרים! מושלם להגיע למספרים קטנים יותר.',
+      example: 'דוגמה: 12 ÷ 3 = 4',
+      tip: 'טיפ: אפשר לחלק רק אם התוצאה יוצאת מספר שלם',
+    },
+  },
+
+  // Zone unlock messages
+  zoneUnlock: {
+    newZone: 'אזור חדש נפתח!',
+    welcome: 'ברוך הבא ל',
+    newOperators: 'פעולות חדשות זמינות:',
+    goodLuck: 'בהצלחה!',
+  },
+
+  // Difficulty change notifications
+  difficultyChange: {
+    levelUp: 'הרמה עלתה!',
+    levelDown: 'הרמה ירדה',
+    harder: 'החידות יהיו מאתגרות יותר',
+    easier: 'החידות יהיו קלות יותר',
+    newFeature: 'תכונה חדשה:',
+    parentheses: 'סדר פעולות חשוב עכשיו! השתמשו בסוגריים',
+    moreNumbers: 'עכשיו יש 4 מספרים לשחק איתם',
+  },
 };
 
 export type Translations = typeof he;

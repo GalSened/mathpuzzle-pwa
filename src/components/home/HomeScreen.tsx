@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
 import { useProgressStore } from '@/store/progressStore';
 import { useGameStore } from '@/store/gameStore';
+import { useUserStore } from '@/store/userStore';
 import { getZoneById, ZONES, getBossInfo, isBossPuzzle } from '@/engine/story';
 import { BossAnnouncement } from '@/components/game/BossAnnouncement';
 import { BossVictory } from '@/components/game/BossVictory';
@@ -14,6 +15,8 @@ import { ShopPage, InventoryView } from '@/components/shop';
 import { LevelUpModal } from '@/components/ui/CoinDisplay';
 import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
+import { OperatorGuide, ZoneIntro } from '@/components/onboarding/OperatorGuide';
+import type { Operator } from '@/engine/types';
 
 interface HomeScreenProps {
   initialTab?: NavTab;
@@ -222,6 +225,17 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const addXP = usePlayerStore((s) => s.addXP);
   const addCoins = usePlayerStore((s) => s.addCoins);
 
+  // Guidance system state
+  const seenZoneIntros = useUserStore((s) => s.seenZoneIntros);
+  const seenOperatorIntros = useUserStore((s) => s.seenOperatorIntros);
+  const markZoneIntroSeen = useUserStore((s) => s.markZoneIntroSeen);
+  const markOperatorIntroSeen = useUserStore((s) => s.markOperatorIntroSeen);
+
+  const [showZoneIntro, setShowZoneIntro] = useState(false);
+  const [pendingOperatorIntros, setPendingOperatorIntros] = useState<Operator[]>([]);
+  const [currentOperatorIntro, setCurrentOperatorIntro] = useState<Operator | null>(null);
+  const [guidanceComplete, setGuidanceComplete] = useState(false);
+
   // Boss encounter states
   const [showBossAnnouncement, setShowBossAnnouncement] = useState(false);
   const [showBossVictory, setShowBossVictory] = useState(false);
@@ -237,16 +251,75 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
     return false;
   };
 
-  // Start a puzzle when entering play mode if none exists
+  // Check for unseen zone/operator introductions when zone changes
   useEffect(() => {
-    if (!currentPuzzle && !showBossAnnouncement && !showBossVictory) {
+    if (!zone) return;
+
+    // Check if this zone needs an intro
+    const needsZoneIntro = !seenZoneIntros.includes(currentZoneId);
+
+    // Check for unseen operators in this zone
+    const zoneOps = zone.ops as Operator[];
+    const unseenOps = zoneOps.filter(op => !seenOperatorIntros.includes(op));
+
+    if (needsZoneIntro && unseenOps.length > 0) {
+      // Show zone intro first, then operator intros
+      setShowZoneIntro(true);
+      setPendingOperatorIntros(unseenOps);
+      setGuidanceComplete(false);
+    } else if (unseenOps.length > 0) {
+      // Just show operator intros
+      setPendingOperatorIntros(unseenOps);
+      setCurrentOperatorIntro(unseenOps[0]);
+      setGuidanceComplete(false);
+    } else {
+      // No guidance needed
+      setGuidanceComplete(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentZoneId]);
+
+  // Handle zone intro completion
+  const handleZoneIntroComplete = () => {
+    markZoneIntroSeen(currentZoneId);
+    setShowZoneIntro(false);
+
+    // Start showing operator intros if any
+    if (pendingOperatorIntros.length > 0) {
+      setCurrentOperatorIntro(pendingOperatorIntros[0]);
+    } else {
+      setGuidanceComplete(true);
+    }
+  };
+
+  // Handle operator intro completion
+  const handleOperatorIntroComplete = () => {
+    if (currentOperatorIntro) {
+      markOperatorIntroSeen(currentOperatorIntro);
+
+      // Move to next operator intro or complete guidance
+      const currentIndex = pendingOperatorIntros.indexOf(currentOperatorIntro);
+      const nextOperator = pendingOperatorIntros[currentIndex + 1];
+
+      if (nextOperator) {
+        setCurrentOperatorIntro(nextOperator);
+      } else {
+        setCurrentOperatorIntro(null);
+        setGuidanceComplete(true);
+      }
+    }
+  };
+
+  // Start a puzzle when entering play mode if none exists and guidance is complete
+  useEffect(() => {
+    if (!currentPuzzle && !showBossAnnouncement && !showBossVictory && guidanceComplete) {
       // Check if it's boss time
       if (!checkAndStartBoss()) {
         startNewPuzzle(undefined, currentZoneId);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory]);
+  }, [currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory, guidanceComplete]);
 
   const handleBossStart = () => {
     setShowBossAnnouncement(false);
@@ -362,6 +435,31 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
             coinsEarned={bossRewards.coins}
             xpEarned={bossRewards.xp}
             onContinue={handleBossVictoryContinue}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Zone Introduction Modal */}
+      <AnimatePresence>
+        {showZoneIntro && zone && (
+          <ZoneIntro
+            zoneName={zone.name}
+            zoneNameHe={zone.nameHe}
+            zoneDescription={zone.descriptionHe}
+            newOperators={pendingOperatorIntros}
+            onContinue={handleZoneIntroComplete}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Operator Introduction Modal */}
+      <AnimatePresence>
+        {currentOperatorIntro && zone && (
+          <OperatorGuide
+            operator={currentOperatorIntro}
+            zoneName={zone.name}
+            zoneNameHe={zone.nameHe}
+            onComplete={handleOperatorIntroComplete}
           />
         )}
       </AnimatePresence>
