@@ -89,9 +89,9 @@ export function useAINarrative(
   });
 
   /**
-   * Get fallback narrative.
+   * Get fallback narrative (not a hook, just a helper function).
    */
-  const useFallback = useCallback(() => {
+  const applyFallback = useCallback(() => {
     if (!context) return;
 
     const text = getFallbackNarrative(type, context.currentWorld, context.recentOutcome);
@@ -119,7 +119,7 @@ export function useAINarrative(
 
     // If fallback only mode, use template
     if (fallbackOnly) {
-      useFallback();
+      applyFallback();
       return;
     }
 
@@ -139,9 +139,9 @@ export function useAINarrative(
       console.error('useAINarrative fetch error:', error);
 
       // Use fallback on error
-      useFallback();
+      applyFallback();
     }
-  }, [type, context, fallbackOnly, useFallback]);
+  }, [type, context, fallbackOnly, applyFallback]);
 
   /**
    * Manual refetch function.
@@ -155,7 +155,9 @@ export function useAINarrative(
    */
   useEffect(() => {
     if (enabled && context) {
-      doFetch();
+      // Using void to indicate intentional fire-and-forget async call
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void doFetch();
     }
   }, [enabled, context, doFetch]);
 
