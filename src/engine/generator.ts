@@ -5,11 +5,13 @@ import {
   Operator,
   PuzzleConstraints,
   Expression,
-  DifficultyMetrics
+  DifficultyMetrics,
+  Tier
 } from './types';
 import { solver } from './solver';
 import { computeSignature } from './signatures';
-import { DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET } from './difficulty';
+import { DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET, getTierDifficultyProfile } from './difficulty';
+import { ALL_OPERATORS } from './tiers';
 
 const NICE_TARGETS: Record<number, number[]> = {
   1: [5, 6, 7, 8, 9, 10, 11, 12, 15, 20],
@@ -128,6 +130,88 @@ export class PuzzleGenerator {
 
     console.warn(`Failed to generate boss puzzle after ${this.maxRetries} attempts`);
     return null;
+  }
+
+
+  /**
+   * V3: Generate a puzzle for a specific Tier
+   * Uses all operators (no zone restrictions) and tier-based difficulty
+   */
+  generateForTier(
+    tier: Tier,
+    archetype?: PuzzleArchetype
+  ): Puzzle | null {
+    const difficultyProfile = getTierDifficultyProfile(tier);
+    const ops = ALL_OPERATORS; // V3: All operators always available
+
+    // Select archetype based on tier if not provided
+    const selectedArchetype = archetype || this.selectArchetypeForTier(tier);
+
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      const puzzle = this.attemptGeneration(selectedArchetype, difficultyProfile, ops);
+
+      if (puzzle && this.validatePuzzle(puzzle)) {
+        this.recentSignatures.push(puzzle.signature);
+        this.recentArchetypes.push(selectedArchetype);
+
+        if (this.recentSignatures.length > 20) {
+          this.recentSignatures.shift();
+        }
+        if (this.recentArchetypes.length > 10) {
+          this.recentArchetypes.shift();
+        }
+
+        return puzzle;
+      }
+    }
+
+    console.warn(`Failed to generate ${tier} puzzle after ${this.maxRetries} attempts`);
+    return null;
+  }
+
+  /**
+   * V3: Select appropriate archetype based on tier characteristics
+   */
+  private selectArchetypeForTier(tier: Tier): PuzzleArchetype {
+    // Boss tiers use chain archetype
+    if (tier === 'Boss') {
+      return 'chain';
+    }
+
+    // Weight archetypes based on tier
+    const weights: Record<Tier, Record<PuzzleArchetype, number>> = {
+      T1: { decision: 0.5, order: 0.3, trap: 0.1, chain: 0.0, constraint: 0.1, precision: 0.0 },
+      T2: { decision: 0.3, order: 0.3, trap: 0.2, chain: 0.1, constraint: 0.1, precision: 0.0 },
+      T3: { decision: 0.2, order: 0.3, trap: 0.2, chain: 0.2, constraint: 0.1, precision: 0.0 },
+      T4: { decision: 0.2, order: 0.2, trap: 0.2, chain: 0.2, constraint: 0.1, precision: 0.1 },
+      T5: { decision: 0.1, order: 0.2, trap: 0.2, chain: 0.3, constraint: 0.1, precision: 0.1 },
+      Boss: { decision: 0.0, order: 0.1, trap: 0.2, chain: 0.5, constraint: 0.1, precision: 0.1 },
+    };
+
+    const tierWeights = weights[tier];
+    const archetypes = Object.keys(tierWeights) as PuzzleArchetype[];
+    const random = Math.random();
+    let cumulative = 0;
+
+    for (const archetype of archetypes) {
+      cumulative += tierWeights[archetype];
+      if (random < cumulative) {
+        return archetype;
+      }
+    }
+
+    return 'decision'; // Fallback
+  }
+
+  /**
+   * V3: Generate next puzzle for a level (global level 1-30)
+   */
+  generateForLevel(levelNumber: number): Puzzle | null {
+    // Lazy import to avoid circular dependency
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getLevel } = require('./worlds');
+    const levelConfig = getLevel(levelNumber);
+    return this.generateForTier(levelConfig.tier);
   }
 
   private attemptGeneration(

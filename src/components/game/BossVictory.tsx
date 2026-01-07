@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Zone } from '@/engine/types';
-import { ZONE_STORIES, BOSS_PROFILES } from '@/engine/story';
+import type { WorldConfig, WorldId } from '@/engine/types';
+import { WORLD_STORIES, getBossProfile } from '@/engine/story';
 import { playBossVictory } from '@/lib/sounds';
 
 interface BossVictoryProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
-  zone: Zone;
+  world: WorldConfig;
   coinsEarned: number;
   xpEarned: number;
   onContinue: () => void;
@@ -16,7 +16,7 @@ interface BossVictoryProps {
 
 export function BossVictory({
   bossInfo,
-  zone,
+  world,
   coinsEarned,
   xpEarned,
   onContinue,
@@ -24,8 +24,9 @@ export function BossVictory({
   const [showRewards, setShowRewards] = useState(false);
   const [showQuote, setShowQuote] = useState(false);
 
-  const victoryText = ZONE_STORIES[zone.id]?.victoryHe || 'הבוס הובס!';
-  const bossProfile = BOSS_PROFILES[zone.id];
+  const worldId = world.id as WorldId;
+  const victoryText = WORLD_STORIES[worldId]?.victoryHe || 'הבוס הובס!';
+  const bossProfile = getBossProfile(worldId);
   const bossVisual = bossProfile?.defeatedVisual || '💀';
   const defeatQuote = bossProfile?.defeatQuoteHe || '';
 

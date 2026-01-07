@@ -4,7 +4,7 @@ import type { Puzzle, Expression, PuzzleArchetype, Operator, EvaluationStep } fr
 import { generator } from '@/engine/generator';
 import { adjustDifficulty, DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET } from '@/engine/difficulty';
 import { calculateXPReward, calculateCoinReward, extractUsedOperators } from '@/engine/adaptive';
-import { getZoneById, getBossInfo } from '@/engine/story';
+import { ALL_OPERATORS } from '@/engine/tiers';
 import { usePlayerStore } from './playerStore';
 
 // Creates a simple addition puzzle for Addlands zone when generator fails
@@ -163,13 +163,20 @@ interface GameState {
   recentResults: PuzzleResult[];
   stats: GameStats;
 
-  // Actions
+  // V3: Level-based state
+  currentLevelNumber: number | null;
+
+  // Actions (V2: Zone-based)
   startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => void;
   setZone: (zoneId: string) => void;
   recordResult: (expression: Expression, hintsUsed: number, puzzleId?: string) => void;
   skipPuzzle: () => void;
   useHint: () => void;
   resetStats: () => void;
+
+  // V3: Level-based actions
+  startPuzzleForLevel: (levelNumber: number) => void;
+  setLevel: (levelNumber: number) => void;
 }
 
 const initialStats: GameStats = {
@@ -203,8 +210,54 @@ export const useGameStore = create<GameState>()(
       recentResults: [],
       stats: initialStats,
 
+      // V3: Level-based state
+      currentLevelNumber: null,
+
       setZone: (zoneId: string) => {
         set({ currentZoneId: zoneId });
+      },
+
+      // V3: Set current level number
+      setLevel: (levelNumber: number) => {
+        set({ currentLevelNumber: levelNumber });
+      },
+
+      // V3: Start puzzle for a specific level (1-30)
+      startPuzzleForLevel: (levelNumber: number) => {
+        const { puzzleStatus } = get();
+
+        // GUARD: Prevent double-advance during transitions
+        if (puzzleStatus === 'transitioning') {
+          console.warn('[GameStore] Ignoring startPuzzleForLevel - transition in progress');
+          return;
+        }
+
+        // Step 1: Lock - enter transitioning state
+        set({ puzzleStatus: 'transitioning', currentPuzzle: null, puzzleId: null });
+
+        // Generate puzzle using tier-based generation
+        const puzzle = generator.generateForLevel(levelNumber);
+
+        if (puzzle) {
+          const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          set({
+            puzzleId: newPuzzleId,
+            puzzleStatus: 'active',
+            currentPuzzle: { ...puzzle, id: newPuzzleId },
+            currentLevelNumber: levelNumber,
+            puzzleStartTime: Date.now(),
+            hintsUsed: 0,
+          });
+        } else {
+          console.error('[GameStore] Failed to generate puzzle for level:', levelNumber);
+          set({
+            puzzleId: null,
+            puzzleStatus: 'idle',
+            currentPuzzle: null,
+            puzzleStartTime: null,
+            hintsUsed: 0,
+          });
+        }
       },
 
       startNewPuzzle: (archetype?: PuzzleArchetype, zoneId?: string, isBossMode?: boolean) => {
@@ -219,53 +272,18 @@ export const useGameStore = create<GameState>()(
         // Step 1: Lock - enter transitioning state
         set({ puzzleStatus: 'transitioning', currentPuzzle: null, puzzleId: null });
 
-        // Get zone operators
+        // V3: All operators are always available
         const effectiveZoneId = zoneId || currentZoneId || 'addlands';
-        const zone = getZoneById(effectiveZoneId);
-        const zoneOperators: Operator[] = zone?.ops || ['+'];
+        const operators: Operator[] = ALL_OPERATORS;
 
         // Calculate effective difficulty (boss mode increases difficulty)
         let effectiveDifficulty = currentDifficulty;
-        if (isBossMode && zone) {
-          const bossInfo = getBossInfo(zone);
-          // Boss difficulty ranges from 2-5, add (difficulty - 1) to base difficulty
-          const bossBonus = bossInfo.difficulty - 1;
-          effectiveDifficulty = Math.min(5, currentDifficulty + bossBonus) as 1 | 2 | 3 | 4 | 5;
+        if (isBossMode) {
+          // Boss difficulty bonus: +2 to current difficulty
+          effectiveDifficulty = Math.min(5, currentDifficulty + 2) as 1 | 2 | 3 | 4 | 5;
         }
 
-        // For addition-only zones (Addlands), always use simple guaranteed-solvable puzzles
-        // The main generator has issues with single-operator constraints
-        console.log('[DEBUG] Zone:', effectiveZoneId, 'Operators:', zoneOperators, 'Boss:', isBossMode);
-        if (zoneOperators.length === 1 && zoneOperators[0] === '+') {
-          // BOSS MODE: Use 5-number boss puzzle
-          if (isBossMode) {
-            console.log('[DEBUG] Using BOSS addition puzzle (5 numbers)');
-            const bossPuzzle = createBossAdditionPuzzle();
-            const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            set({
-              puzzleId: newPuzzleId,
-              puzzleStatus: 'active',
-              currentPuzzle: { ...bossPuzzle, id: newPuzzleId },
-              currentZoneId: effectiveZoneId,
-              puzzleStartTime: Date.now(),
-              hintsUsed: 0,
-            });
-            return;
-          }
-          // Normal mode: Use simple 3-number puzzle
-          console.log('[DEBUG] Using simple addition puzzle');
-          const simplePuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
-          const newPuzzleId = `puzzle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          set({
-            puzzleId: newPuzzleId,
-            puzzleStatus: 'active',
-            currentPuzzle: { ...simplePuzzle, id: newPuzzleId },
-            currentZoneId: effectiveZoneId,
-            puzzleStartTime: Date.now(),
-            hintsUsed: 0,
-          });
-          return;
-        }
+        console.log('[DEBUG] V3 Puzzle Generation - Operators:', operators, 'Boss:', isBossMode);
 
         // Calculate excluded archetypes based on recent puzzles
         const recentArchetypes = recentResults.slice(-3).map(r => r.archetype);
@@ -273,18 +291,18 @@ export const useGameStore = create<GameState>()(
           ? recentArchetypes.filter((a, i, arr) => arr.indexOf(a) !== i)
           : [];
 
-        // BOSS MODE for non-addition zones: Use generateBossPuzzle
+        // BOSS MODE: Use generateBossPuzzle
         let puzzle: Puzzle | null = null;
         if (isBossMode) {
           console.log('[DEBUG] Using BOSS puzzle generator (5 numbers)');
-          puzzle = generator.generateBossPuzzle(zoneOperators);
+          puzzle = generator.generateBossPuzzle(operators);
         }
 
         // Normal puzzle generation
         if (!puzzle) {
           puzzle = archetype
-            ? generator.generate(archetype, effectiveDifficulty, zoneOperators)
-            : generator.generateNext(effectiveDifficulty, excludeArchetypes, zoneOperators);
+            ? generator.generate(archetype, effectiveDifficulty, operators)
+            : generator.generateNext(effectiveDifficulty, excludeArchetypes, operators);
         }
 
         if (puzzle) {
@@ -298,11 +316,11 @@ export const useGameStore = create<GameState>()(
             hintsUsed: 0,
           });
         } else {
-          // Fallback: try with any archetype but keep zone operators
-          let fallbackPuzzle = generator.generateNext(effectiveDifficulty, [], zoneOperators);
+          // Fallback: try with any archetype
+          let fallbackPuzzle = generator.generateNext(effectiveDifficulty, [], operators);
 
           // Ultimate fallback: create a simple addition puzzle manually
-          if (!fallbackPuzzle && zoneOperators.length === 1 && zoneOperators[0] === '+') {
+          if (!fallbackPuzzle) {
             fallbackPuzzle = createSimpleAdditionPuzzle(effectiveDifficulty);
           }
 

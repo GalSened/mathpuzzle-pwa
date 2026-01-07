@@ -1,4 +1,5 @@
-import { DifficultyProfile, InsightType } from './types';
+import { DifficultyProfile, InsightType, Tier } from './types';
+import { TIER_PRESETS, TIER_NUMBER_RANGES, TIER_TARGET_RANGES } from './tiers';
 
 /**
  * Multi-Axis Difficulty System
@@ -208,4 +209,66 @@ export function getExpectedSolveTime(level: 1 | 2 | 3 | 4 | 5): {
   };
 
   return times[level];
+}
+
+// ============== V3: Tier-Based Difficulty ==============
+
+/**
+ * Maps a Tier to a DifficultyProfile
+ * Used by the V3 World/Level system where all operators are always available
+ * and difficulty is controlled by Tier presets
+ */
+export function getTierDifficultyProfile(tier: Tier): DifficultyProfile {
+  const preset = TIER_PRESETS[tier];
+  const numberRange = TIER_NUMBER_RANGES[tier];
+  const targetRange = TIER_TARGET_RANGES[tier];
+
+  // Map tier to difficulty level (1-5)
+  const levelMap: Record<Tier, 1 | 2 | 3 | 4 | 5> = {
+    T1: 1,
+    T2: 2,
+    T3: 3,
+    T4: 4,
+    T5: 5,
+    Boss: 5,
+  };
+
+  // Map tier to insight required
+  const insightMap: Record<Tier, InsightType> = {
+    T1: 'basic_arithmetic',
+    T2: 'basic_arithmetic',
+    T3: 'order_of_operations',
+    T4: 'factoring',
+    T5: 'working_backwards',
+    Boss: 'working_backwards',
+  };
+
+  return {
+    level: levelMap[tier],
+    numberCount: preset.numbers,
+    numberRange,
+    targetRange,
+    requiresParentheses: preset.maxDepth > 1,
+    operatorVariety: 4, // All 4 operators always available in V3
+    trapCount: preset.traps,
+    insightRequired: insightMap[tier],
+    targets: {
+      minDepth: preset.minDepth,
+      maxDepth: preset.maxDepth,
+      minErrorMargin: preset.errorMarginMin,
+      maxErrorMargin: preset.errorMarginMax,
+      minIntuitiveness: preset.intuitiveness,
+    },
+  };
+}
+
+/**
+ * Get the tier difficulty profile for a specific level number (1-30)
+ */
+export function getLevelDifficultyProfile(levelNumber: number): DifficultyProfile {
+  // Lazy import to avoid circular dependency
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getLevel } = require('./worlds');
+  const levelConfig = getLevel(levelNumber);
+  return getTierDifficultyProfile(levelConfig.tier);
 }

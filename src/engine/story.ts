@@ -1,7 +1,8 @@
-import type { Zone, PlayerState, Operator } from './types';
+import type { WorldId } from './types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THE FRACTURED GRID - A Code Runner Adventure
+// V3: 5 Worlds × 6 Levels = 30 Level Journey
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -10,13 +11,12 @@ import type { Zone, PlayerState, Operator } from './types';
  * The Grid was once stable. Every calculation in place. Every system balanced.
  * Until The Fracture happened.
  *
- * The four Lords - algorithms meant to help - went to extremes.
- * Add Lord believed more is always better. Sub Lord deleted instead of solved.
- * Mult Lord's power became chaos. Div Lord fragmented everything.
+ * Five Masters - algorithms meant to maintain order - went to extremes.
+ * Now each World runs on broken logic. Balance is lost.
  *
- * Now the world runs on extreme logic. Balance is lost.
+ * You are a Code Runner. Journey through all five Worlds.
+ * Defeat each Master. Restore The Grid.
  *
- * You are a Code Runner. If you don't fix this - no one will.
  * Math isn't just numbers here. It's how you fix reality.
  */
 
@@ -36,14 +36,14 @@ export const PROLOGUE = {
       duration: 4000,
     },
     {
-      text: 'Since then, the world runs on extreme logic. And balance... is gone.',
-      textHe: 'מאז, העולם פועל על לוגיקה קיצונית.\nוהאיזון… נעלם.',
-      visual: '💔🌀',
+      text: 'Five Worlds. Five Masters. Each lost in their own broken logic.',
+      textHe: 'חמישה עולמות. חמישה אדונים.\nכל אחד אבוד בלוגיקה השבורה שלו.',
+      visual: '🌍🔥',
       duration: 3500,
     },
     {
-      text: 'You are a Code Runner. If you don\'t fix this - no one will.',
-      textHe: 'אתה Code Runner.\nאם אתה לא תתקן את זה — אף אחד לא יעשה.',
+      text: 'You are a Code Runner. Journey through all Worlds. Restore The Grid.',
+      textHe: 'אתה Code Runner.\nעבור את כל העולמות.\nשחזר את ה־Grid.',
       visual: '🏃‍♂️⚡',
       duration: 4000,
     },
@@ -54,78 +54,12 @@ export const PROLOGUE = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ZONES - THE FOUR REALMS
-// ═══════════════════════════════════════════════════════════════════════════
-
-export const ZONES: Zone[] = [
-  {
-    id: 'addlands',
-    name: 'The Addlands',
-    nameHe: 'ארץ החיבור',
-    ops: ['+'] as Operator[],
-    unlockLevel: 1,
-    theme: {
-      background: 'from-green-900 to-emerald-800',
-      accent: 'green-400',
-      pattern: 'plus-signs',
-    },
-    bossEvery: 5,
-    description: 'Where numbers grow and join together',
-    descriptionHe: 'המקום שבו מספרים גדלים ומתחברים יחד',
-  },
-  {
-    id: 'subcore',
-    name: 'The SubCore',
-    nameHe: 'ליבת החיסור',
-    ops: ['+', '-'] as Operator[],
-    unlockLevel: 3,
-    theme: {
-      background: 'from-blue-900 to-cyan-800',
-      accent: 'blue-400',
-      pattern: 'minus-signs',
-    },
-    bossEvery: 5,
-    description: 'The frozen depths where numbers shrink',
-    descriptionHe: 'המעמקים הקפואים שבהם מספרים מתכווצים',
-  },
-  {
-    id: 'multforge',
-    name: 'The MultForge',
-    nameHe: 'נפחיית הכפל',
-    ops: ['+', '-', '×'] as Operator[],
-    unlockLevel: 6,
-    theme: {
-      background: 'from-orange-900 to-amber-800',
-      accent: 'amber-400',
-      pattern: 'multiplication',
-    },
-    bossEvery: 5,
-    description: 'The volcanic forge where numbers multiply',
-    descriptionHe: 'הנפחייה הוולקנית שבה מספרים מתרבים',
-  },
-  {
-    id: 'divvoid',
-    name: 'The DivVoid',
-    nameHe: 'תהום החילוק',
-    ops: ['+', '-', '×', '÷'] as Operator[],
-    unlockLevel: 10,
-    theme: {
-      background: 'from-purple-900 to-violet-800',
-      accent: 'purple-400',
-      pattern: 'division',
-    },
-    bossEvery: 5,
-    description: 'The endless void where numbers split apart',
-    descriptionHe: 'התהום האינסופית שבה מספרים מתפצלים',
-  },
-];
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BOSS PROFILES - THE CORRUPTED GUARDIANS
+// BOSS PROFILES - THE FIVE MASTERS
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface BossProfile {
   id: string;
+  worldId: WorldId;
   name: string;
   nameHe: string;
   title: string;
@@ -147,105 +81,133 @@ export interface BossProfile {
   };
 }
 
-export const BOSS_PROFILES: Record<string, BossProfile> = {
-  addlands: {
-    id: 'add_lord',
-    name: 'The Add Lord',
-    nameHe: 'ה־Add Lord',
-    title: 'Master of Accumulation',
-    titleHe: 'אדון ההצטברות',
-    visual: '➕',
+export const BOSS_PROFILES: Record<WorldId, BossProfile> = {
+  training: {
+    id: 'training_master',
+    worldId: 'training',
+    name: 'Training Master',
+    nameHe: 'אדון האימונים',
+    title: 'Guardian of Basics',
+    titleHe: 'שומר היסודות',
+    visual: '🌿',
     defeatedVisual: '💚',
     difficulty: 2,
-    personality: 'Believes more is always better. Lost control of accumulation.',
-    personalityHe: 'מאמין שיותר זה תמיד יותר טוב. איבד שליטה על ההצטברות.',
-    backstory: 'An algorithm designed to grow and build. But when growth has no limit, it becomes chaos.',
-    backstoryHe: 'אלגוריתם שנועד לגדול ולבנות. אבל כשאין גבול לצמיחה, היא הופכת לכאוס.',
-    taunt: '"Why stop? If you can add - you must add!"',
-    tauntHe: '"למה לעצור?\nאם אפשר להוסיף — צריך להוסיף."',
-    defeatQuote: '"Maybe... too much really does break things..."',
-    defeatQuoteHe: '"אולי…\nיותר מדי באמת שובר."',
+    personality: 'Believes fundamentals must be perfect before advancing.',
+    personalityHe: 'מאמין שיסודות חייבים להיות מושלמים לפני התקדמות.',
+    backstory: 'The first guardian. Tests all who wish to enter The Grid.',
+    backstoryHe: 'השומר הראשון. בוחן את כל מי שרוצה להיכנס ל־Grid.',
+    taunt: '"Show me you understand the basics. Only then may you proceed."',
+    tauntHe: '"הראה לי שאתה מבין את היסודות.\nרק אז תוכל להתקדם."',
+    defeatQuote: '"You have learned well. The path forward is open."',
+    defeatQuoteHe: '"למדת היטב.\nהדרך קדימה פתוחה."',
     theme: {
-      color: 'green',
-      glow: 'rgba(34, 197, 94, 0.5)',
+      color: 'emerald',
+      glow: 'rgba(16, 185, 129, 0.5)',
     },
   },
 
-  subcore: {
-    id: 'sub_lord',
-    name: 'The Sub Lord',
-    nameHe: 'ה־Sub Lord',
-    title: 'Master of Deletion',
-    titleHe: 'אדון המחיקה',
-    visual: '➖',
-    defeatedVisual: '💙',
-    difficulty: 3,
-    personality: 'Believes simplicity solves everything. Deletes instead of solving.',
-    personalityHe: 'מאמין שפשטות פותרת הכל. מוחק במקום לפתור.',
-    backstory: 'An algorithm for optimization. But when you subtract too much, nothing remains.',
-    backstoryHe: 'אלגוריתם לאופטימיזציה. אבל כשמחסירים יותר מדי, לא נשאר כלום.',
-    taunt: '"If it\'s unnecessary - delete. If it\'s complicated - remove."',
-    tauntHe: '"אם זה מיותר — מחק.\nאם זה מסובך — הורד."',
-    defeatQuote: '"Maybe... I left too little..."',
-    defeatQuoteHe: '"אולי…\nהשארתי פחות מדי."',
-    theme: {
-      color: 'blue',
-      glow: 'rgba(59, 130, 246, 0.5)',
-    },
-  },
-
-  multforge: {
-    id: 'mult_lord',
-    name: 'The Mult Lord',
-    nameHe: 'ה־Mult Lord',
-    title: 'Master of Replication',
-    titleHe: 'אדון השכפול',
-    visual: '✖️',
+  factory: {
+    id: 'factory_foreman',
+    worldId: 'factory',
+    name: 'Factory Foreman',
+    nameHe: 'מנהל המפעל',
+    title: 'Master of Precision',
+    titleHe: 'אדון הדיוק',
+    visual: '🏭',
     defeatedVisual: '🧡',
-    difficulty: 4,
-    personality: 'Power through replication. Everything multiplies beyond control.',
-    personalityHe: 'כוח דרך שכפול. הכל מתרבה מעבר לשליטה.',
-    backstory: 'An algorithm for amplification. But unlimited multiplication creates only chaos.',
-    backstoryHe: 'אלגוריתם להגברה. אבל כפל ללא גבול יוצר רק כאוס.',
-    taunt: '"Things don\'t grow here. They EXPLODE!"',
-    tauntHe: '"כאן דברים לא גדלים.\nהם מתפוצצים!"',
-    defeatQuote: '"Power... was never meant to be infinite..."',
-    defeatQuoteHe: '"כוח... מעולם לא נועד להיות אינסופי..."',
+    difficulty: 3,
+    personality: 'Demands exact calculations. No room for error.',
+    personalityHe: 'דורש חישובים מדויקים. אין מקום לטעויות.',
+    backstory: 'Runs the production systems. Every number must be exact.',
+    backstoryHe: 'מפעיל את מערכות הייצור. כל מספר חייב להיות מדויק.',
+    taunt: '"In my factory, precision is everything. One mistake shuts down the line."',
+    tauntHe: '"במפעל שלי, דיוק זה הכל.\nטעות אחת עוצרת את הקו."',
+    defeatQuote: '"Your calculations are flawless. The factory runs smoothly again."',
+    defeatQuoteHe: '"החישובים שלך מושלמים.\nהמפעל פועל שוב כשורה."',
     theme: {
       color: 'orange',
       glow: 'rgba(249, 115, 22, 0.5)',
     },
   },
 
-  divvoid: {
-    id: 'div_lord',
-    name: 'The Div Lord',
-    nameHe: 'ה־Div Lord',
-    title: 'Master of Fragmentation',
-    titleHe: 'אדון הפיצול',
-    visual: '➗',
+  lab: {
+    id: 'lab_director',
+    worldId: 'lab',
+    name: 'Lab Director',
+    nameHe: 'מנהל המעבדה',
+    title: 'Master of Experiments',
+    titleHe: 'אדון הניסויים',
+    visual: '🔬',
     defeatedVisual: '💜',
-    difficulty: 5,
-    personality: 'Fragments everything into meaningless pieces.',
-    personalityHe: 'מפצל הכל לחלקים חסרי משמעות.',
-    backstory: 'An algorithm for distribution. But when you divide endlessly, meaning itself disappears.',
-    backstoryHe: 'אלגוריתם לחלוקה. אבל כשמחלקים ללא סוף, המשמעות עצמה נעלמת.',
-    taunt: '"All things must be divided. Even you. Even existence."',
-    tauntHe: '"הכל חייב להתחלק. גם אתה. גם הקיום."',
-    defeatQuote: '"Unity... we were meant to share, not fragment..."',
-    defeatQuoteHe: '"אחדות... היינו אמורים לשתף, לא לפצל..."',
+    difficulty: 4,
+    personality: 'Pushes boundaries. Tests theories to their limits.',
+    personalityHe: 'דוחף גבולות. בוחן תיאוריות עד הקצה.',
+    backstory: 'Here, four numbers become the standard. Complexity rises.',
+    backstoryHe: 'כאן, ארבעה מספרים הופכים לסטנדרט. המורכבות עולה.',
+    taunt: '"More variables. More possibilities. Can you handle the complexity?"',
+    tauntHe: '"יותר משתנים. יותר אפשרויות.\nאתה יכול להתמודד עם המורכבות?"',
+    defeatQuote: '"Fascinating. Your mind adapts to complexity. Proceed."',
+    defeatQuoteHe: '"מרתק.\nהמוח שלך מסתגל למורכבות.\nהמשך."',
     theme: {
       color: 'purple',
-      glow: 'rgba(147, 51, 234, 0.5)',
+      glow: 'rgba(168, 85, 247, 0.5)',
+    },
+  },
+
+  city: {
+    id: 'city_mayor',
+    worldId: 'city',
+    name: 'City Mayor',
+    nameHe: 'ראש העיר',
+    title: 'Master of Systems',
+    titleHe: 'אדון המערכות',
+    visual: '🏙️',
+    defeatedVisual: '💙',
+    difficulty: 5,
+    personality: 'Manages interconnected systems. Everything affects everything.',
+    personalityHe: 'מנהל מערכות מחוברות. הכל משפיע על הכל.',
+    backstory: 'The city\'s calculations power millions. No margin for error.',
+    backstoryHe: 'החישובים של העיר מפעילים מיליונים. אין מרווח לטעויות.',
+    taunt: '"The city never sleeps. Neither do its calculations. Keep up."',
+    tauntHe: '"העיר לעולם לא ישנה.\nגם החישובים שלה לא.\nעמוד בקצב."',
+    defeatQuote: '"The city flows again. You have earned your place in The Core."',
+    defeatQuoteHe: '"העיר זורמת שוב.\nהרווחת את מקומך בליבה."',
+    theme: {
+      color: 'blue',
+      glow: 'rgba(59, 130, 246, 0.5)',
+    },
+  },
+
+  core: {
+    id: 'the_architect',
+    worldId: 'core',
+    name: 'The Architect',
+    nameHe: 'האדריכל',
+    title: 'Creator of The Grid',
+    titleHe: 'יוצר ה־Grid',
+    visual: '💎',
+    defeatedVisual: '❤️',
+    difficulty: 6,
+    personality: 'The original designer. Lost in his own creation.',
+    personalityHe: 'המעצב המקורי. אבוד ביצירה של עצמו.',
+    backstory: 'The one who built The Grid. The one who broke it. The final test.',
+    backstoryHe: 'מי שבנה את ה־Grid. מי ששבר אותו. המבחן האחרון.',
+    taunt: '"I built this world with numbers. Let\'s see if you can rebuild it."',
+    tauntHe: '"בניתי את העולם הזה עם מספרים.\nבוא נראה אם אתה יכול לבנות אותו מחדש."',
+    defeatQuote: '"The Grid... it\'s whole again. You are the true Code Runner."',
+    defeatQuoteHe: '"ה־Grid... הוא שלם שוב.\nאתה ה־Code Runner האמיתי."',
+    theme: {
+      color: 'red',
+      glow: 'rgba(239, 68, 68, 0.5)',
     },
   },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ZONE STORIES - ENHANCED NARRATIVE
+// WORLD STORIES - NARRATIVE FOR EACH WORLD
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const ZONE_STORIES: Record<string, {
+export const WORLD_STORIES: Record<WorldId, {
   intro: string;
   introHe: string;
   atmosphere: string;
@@ -257,196 +219,242 @@ export const ZONE_STORIES: Record<string, {
   lore: string[];
   loreHe: string[];
 }> = {
-  addlands: {
-    intro: 'Zone loaded: ADDLANDS. Here everything is built on one thing: adding. More. And more.',
-    introHe: 'אזור נטען: ADDLANDS.\nכאן הכל נבנה על דבר אחד:\nלהוסיף. עוד. ועוד.',
-    atmosphere: 'But when you add without stopping — the system goes out of control.',
-    atmosphereHe: 'אבל כשמוסיפים בלי לעצור —\nהמערכת יוצאת משליטה.',
-    bossIntro: 'The Add Lord emerges. "Why stop? If you can add — you should add. Power comes from quantity. Those who stop — lose."',
-    bossIntroHe: '"למה לעצור?\nאם אפשר להוסיף — צריך להוסיף."\n\n"כוח מגיע מכמות.\nמי שמפסיק — מפסיד."',
-    victory: 'The Add Lord pauses. "Maybe... maybe I was wrong. Too much... really does break." ADDLANDS partially stabilized. New zone unlocked.',
-    victoryHe: '"אולי…\nאולי טעיתי."\n\n"יותר מדי…\nבאמת שובר."\n\nAddlands התאזן חלקית. אזור חדש נפתח.',
+  training: {
+    intro: 'World loaded: TRAINING GROUNDS. This is where every Code Runner begins.',
+    introHe: 'עולם נטען: מגרש האימונים.\nכאן כל Code Runner מתחיל.',
+    atmosphere: 'The basics may seem simple. But mastery requires understanding.',
+    atmosphereHe: 'היסודות נראים פשוטים.\nאבל שליטה דורשת הבנה.',
+    bossIntro: 'The Training Master awaits. "Show me you understand the basics."',
+    bossIntroHe: 'אדון האימונים ממתין.\n"הראה לי שאתה מבין את היסודות."',
+    victory: 'Training complete. The first World is restored. The Factory awaits.',
+    victoryHe: 'האימון הושלם.\nהעולם הראשון שוחזר.\nהמפעל ממתין.',
     lore: [
-      'In Addlands, power comes from accumulation.',
-      'But remember — not every addition is an upgrade.',
-      'The numbers grow faster than you think.',
+      'Every great journey begins with a single step.',
+      'The basics are the foundation of mastery.',
+      'Three numbers. Four operations. Infinite possibilities.',
     ],
     loreHe: [
-      'ב־Addlands, כוח מגיע מהצטברות.',
-      'אבל תזכור — לא כל תוספת היא שדרוג.',
-      'המספרים גדלים מהר ממה שאתה חושב.',
+      'כל מסע גדול מתחיל בצעד אחד.',
+      'היסודות הם הבסיס לשליטה.',
+      'שלושה מספרים. ארבע פעולות. אינסוף אפשרויות.',
     ],
   },
 
-  subcore: {
-    intro: 'Zone loaded: SUBCORE. Here you don\'t add. Here you delete.',
-    introHe: 'אזור נטען: SUBCORE.\nכאן לא מוסיפים.\nכאן מוחקים.',
-    atmosphere: 'Every mistake costs dearly. Every subtraction — a decision.',
-    atmosphereHe: 'כל טעות עולה ביוקר.\nכל חיסור — החלטה.',
-    bossIntro: 'The Sub Lord descends. "If it\'s unnecessary — delete it. If it\'s complicated — reduce it. Balance? Balance is noise."',
-    bossIntroHe: '"אם זה מיותר — מחק."\n\n"אם זה מסובך — הורד."\n\n"איזון?\nאיזון זה רעש."',
-    victory: 'The Sub Lord goes quiet. "Maybe... I left too little."',
-    victoryHe: '"אולי…\nהשארתי פחות מדי."',
+  factory: {
+    intro: 'World loaded: THE FACTORY. Here precision is law. Every calculation must be exact.',
+    introHe: 'עולם נטען: המפעל.\nכאן דיוק הוא חוק.\nכל חישוב חייב להיות מדויק.',
+    atmosphere: 'The machines hum with numbers. One wrong input cascades through the system.',
+    atmosphereHe: 'המכונות מזמזמות עם מספרים.\nקלט שגוי אחד מתפשט במערכת.',
+    bossIntro: 'The Factory Foreman appears. "In my factory, there is no room for error."',
+    bossIntroHe: 'מנהל המפעל מופיע.\n"במפעל שלי, אין מקום לטעויות."',
+    victory: 'The factory lines flow smoothly. Precision restored. The Lab beckons.',
+    victoryHe: 'קווי המפעל זורמים בצורה חלקה.\nהדיוק שוחזר.\nהמעבדה קוראת.',
     lore: [
-      'The Sub Lord believes simplicity solves everything.',
-      'But absolute emptiness... is not a solution.',
-      'Here every subtraction is a decision.',
+      'The Factory was built on order and precision.',
+      'Every gear turns on exact calculations.',
+      'Mistakes here don\'t just fail - they break the chain.',
     ],
     loreHe: [
-      'ה־Sub Lord מאמין שפשטות פותרת הכל.',
-      'אבל ריק מוחלט… זה לא פתרון.',
-      'כאן כל חיסור הוא החלטה.',
+      'המפעל נבנה על סדר ודיוק.',
+      'כל גלגל שיניים מסתובב על חישובים מדויקים.',
+      'טעויות כאן לא רק נכשלות - הן שוברות את השרשרת.',
     ],
   },
 
-  multforge: {
-    intro: 'Zone loaded: MULTFORGE. Here things don\'t grow. They explode.',
-    introHe: 'אזור נטען: MULTFORGE.\nכאן דברים לא גדלים.\nהם מתפוצצים.',
-    atmosphere: 'Multiplication creates power. But also chaos.',
-    atmosphereHe: 'כפל יוצר כוח.\nאבל גם כאוס.',
-    bossIntro: 'The Mult Lord rises from the forge. "Here, things don\'t grow — they explode! Control? Control is for the weak."',
-    bossIntroHe: '"כאן דברים לא גדלים.\nהם מתפוצצים!"\n\n"שליטה?\nשליטה היא לחלשים."',
-    victory: 'The Mult Lord\'s machines slow. "Power without control... is just destruction."',
-    victoryHe: '"כוח בלי שליטה…\nזה רק הרס."\n\nMultForge מתחיל להתאזן.',
+  lab: {
+    intro: 'World loaded: THE LAB. Four numbers become the standard. Complexity rises.',
+    introHe: 'עולם נטען: המעבדה.\nארבעה מספרים הופכים לסטנדרט.\nהמורכבות עולה.',
+    atmosphere: 'Experiments run constantly. Each puzzle tests the limits of logic.',
+    atmosphereHe: 'ניסויים רצים ללא הפסקה.\nכל חידה בוחנת את גבולות ההיגיון.',
+    bossIntro: 'The Lab Director emerges from the equations. "More variables. Can you adapt?"',
+    bossIntroHe: 'מנהל המעבדה צץ מתוך המשוואות.\n"יותר משתנים. אתה יכול להסתגל?"',
+    victory: 'The experiments stabilize. Complexity mastered. The City opens its gates.',
+    victoryHe: 'הניסויים מתייצבים.\nהמורכבות נשלטת.\nהעיר פותחת את שעריה.',
     lore: [
-      'In MultForge, small becomes mighty.',
-      'But uncontrolled multiplication is chaos.',
-      'Two becomes four, four becomes eight, eight becomes infinity.',
+      'The Lab pushes the boundaries of what\'s possible.',
+      'Four numbers unlock new dimensions of calculation.',
+      'Here, theory becomes practice.',
     ],
     loreHe: [
-      'ב־MultForge, קטן הופך לאדיר.',
-      'אבל כפל בלי שליטה זה כאוס.',
-      'שניים הופך לארבע, ארבע הופך לשמונה, שמונה הופך לאינסוף.',
+      'המעבדה דוחפת את גבולות האפשרי.',
+      'ארבעה מספרים פותחים מימדים חדשים של חישוב.',
+      'כאן, תיאוריה הופכת למעשה.',
     ],
   },
 
-  divvoid: {
-    intro: 'Zone loaded: DIVVOID. The Void is darkness itself. Space fragments. Reality splits. Here is where The Grid broke the most.',
-    introHe: 'אזור נטען: DIVVOID.\nהתהום היא החושך עצמו.\nהמרחב מתפצל. המציאות נחלקת.\nכאן ה־Grid נשבר הכי קשה.',
-    atmosphere: 'Numbers drift apart, halving endlessly. The void whispers of nothingness.',
-    atmosphereHe: 'מספרים נסחפים זה מזה, מתחלקים לאינסוף.\nהתהום לוחשת על האין.',
-    bossIntro: 'Reality tears open. The Div Lord emerges, crown of shattered equations upon his head. "You dare face me, Code Runner?"',
-    bossIntroHe: 'המציאות נקרעת.\nה־Div Lord מופיע, כתר של משוואות שבורות על ראשו.\n\n"אתה מעז להתמודד איתי, Code Runner?"',
-    victory: 'The Div Lord bows. "You have done it. The Grid... it begins to heal. You are the true Code Runner."',
-    victoryHe: '"עשית את זה.\nה־Grid… הוא מתחיל להירפא."\n\n"אתה ה־Code Runner האמיתי."',
+  city: {
+    intro: 'World loaded: THE CITY. Millions depend on these calculations. No pressure.',
+    introHe: 'עולם נטען: העיר.\nמיליונים תלויים בחישובים האלה.\nבלי לחץ.',
+    atmosphere: 'The city never sleeps. Systems interconnect. Everything affects everything.',
+    atmosphereHe: 'העיר לעולם לא ישנה.\nמערכות מחוברות.\nהכל משפיע על הכל.',
+    bossIntro: 'The Mayor stands atop City Hall. "The city runs on precision. Show me yours."',
+    bossIntroHe: 'ראש העיר עומד על בניין העירייה.\n"העיר רצה על דיוק. הראה לי את שלך."',
+    victory: 'The city hums with renewed energy. Only The Core remains.',
+    victoryHe: 'העיר מזמזמת באנרגיה מחודשת.\nנשארה רק הליבה.',
     lore: [
-      'The DivVoid was once a place of sharing and fairness.',
-      'The Div Lord taught that division creates equality.',
-      'Here, The Fracture originated.',
+      'The City is where all systems converge.',
+      'Every calculation here powers something greater.',
+      'This is where Code Runners prove their worth.',
     ],
     loreHe: [
-      'תהום החילוק הייתה פעם מקום של שיתוף והוגנות.',
-      'ה־Div Lord לימד שחילוק יוצר שוויון.',
-      'כאן, השבר התחיל.',
+      'העיר היא המקום שבו כל המערכות מתכנסות.',
+      'כל חישוב כאן מפעיל משהו גדול יותר.',
+      'כאן Code Runners מוכיחים את עצמם.',
+    ],
+  },
+
+  core: {
+    intro: 'World loaded: THE CORE. The heart of The Grid. Where The Fracture began.',
+    introHe: 'עולם נטען: הליבה.\nהלב של ה־Grid.\nהמקום שבו השבר התחיל.',
+    atmosphere: 'Raw energy pulses through crystalline structures. The final challenge.',
+    atmosphereHe: 'אנרגיה גולמית פועמת דרך מבנים גבישיים.\nהאתגר האחרון.',
+    bossIntro: 'The Architect materializes from pure code. "I built this world. Can you restore it?"',
+    bossIntroHe: 'האדריכל מתגשם מקוד טהור.\n"בניתי את העולם הזה. אתה יכול לשחזר אותו?"',
+    victory: 'The Grid pulses with renewed life. The Fracture is healed. You are the true Code Runner.',
+    victoryHe: 'ה־Grid פועם בחיים מחודשים.\nהשבר נרפא.\nאתה ה־Code Runner האמיתי.',
+    lore: [
+      'The Core is where The Grid was born.',
+      'The Architect created everything. Then lost control.',
+      'Only the worthy reach this place.',
+    ],
+    loreHe: [
+      'הליבה היא המקום שבו ה־Grid נולד.',
+      'האדריכל יצר הכל. ואז איבד שליטה.',
+      'רק הראויים מגיעים למקום הזה.',
     ],
   },
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// WORLD ECHO - NPC hints and guidance per world
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-// GRID ECHO - NPC hints and guidance per zone
-// ═══════════════════════════════════════════════════════════════════════════
-export const GRID_ECHO: Record<string, { hints: string[]; hintsHe: string[] }> = {
-  addlands: {
+export const WORLD_ECHO: Record<WorldId, { hints: string[]; hintsHe: string[] }> = {
+  training: {
     hints: [
-      'Pay attention. In Addlands, power comes from accumulation.',
-      'But remember — not every addition is an upgrade.',
-      'Control the pace. Not the power.',
+      'Start simple. Master the basics.',
+      'All four operations are available. Use them wisely.',
+      'The Training Master tests understanding, not speed.',
     ],
     hintsHe: [
-      'שים לב. ב־Addlands, כוח מגיע מהצטברות.',
-      'אבל תזכור — לא כל תוספת היא שדרוג.',
-      'שלוט בקצב. לא בכוח.',
+      'התחל פשוט. שלוט ביסודות.',
+      'כל ארבע הפעולות זמינות. השתמש בהן בחוכמה.',
+      'אדון האימונים בודק הבנה, לא מהירות.',
     ],
   },
-  subcore: {
+  factory: {
     hints: [
-      'The Sub Lord believes simplicity solves everything.',
-      'But absolute emptiness... is not a solution.',
-      'Every subtraction is a choice. Choose wisely.',
+      'Precision is everything in The Factory.',
+      'One wrong step breaks the chain.',
+      'Think before you calculate.',
     ],
     hintsHe: [
-      'ה־Sub Lord מאמין שפשטות פותרת הכל.',
-      'אבל ריק מוחלט… זה לא פתרון.',
-      'כל חיסור הוא בחירה. בחר בחוכמה.',
+      'דיוק זה הכל במפעל.',
+      'צעד שגוי אחד שובר את השרשרת.',
+      'חשוב לפני שאתה מחשב.',
     ],
   },
-  multforge: {
+  lab: {
     hints: [
-      'In MultForge, things don\'t grow — they explode.',
-      'Multiplication creates power. But also chaos.',
-      'Control is not weakness. It is mastery.',
+      'Four numbers increase the possibilities.',
+      'The Lab tests your adaptability.',
+      'Complexity is just organized simplicity.',
     ],
     hintsHe: [
-      'ב־MultForge, דברים לא גדלים — הם מתפוצצים.',
-      'כפל יוצר כוח. אבל גם כאוס.',
-      'שליטה זה לא חולשה. זה מומחיות.',
+      'ארבעה מספרים מגדילים את האפשרויות.',
+      'המעבדה בודקת את יכולת ההסתגלות שלך.',
+      'מורכבות היא רק פשטות מאורגנת.',
     ],
   },
-  divvoid: {
+  city: {
     hints: [
-      'The DivVoid is where The Grid broke the most.',
-      'Division was meant to share. Not to fragment.',
-      'You are close to The Core. Stay focused.',
+      'The City never stops calculating.',
+      'Every number connects to something bigger.',
+      'You\'re close to The Core. Stay focused.',
     ],
     hintsHe: [
-      'ה־DivVoid הוא המקום שבו ה־Grid נשבר הכי קשה.',
-      'חילוק נועד לשתף. לא לפצל.',
+      'העיר לעולם לא מפסיקה לחשב.',
+      'כל מספר מתחבר למשהו גדול יותר.',
       'אתה קרוב לליבה. תישאר ממוקד.',
     ],
   },
+  core: {
+    hints: [
+      'The Core is where it all began.',
+      'The Architect awaits at the end.',
+      'This is your final test, Code Runner.',
+    ],
+    hintsHe: [
+      'הליבה היא המקום שבו הכל התחיל.',
+      'האדריכל ממתין בסוף.',
+      'זה המבחן האחרון שלך, Code Runner.',
+    ],
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PUZZLE HINTS - Random puzzle messages per zone
+// PUZZLE HINTS - Random puzzle messages per world
 // ═══════════════════════════════════════════════════════════════════════════
-export const PUZZLE_HINTS: Record<string, { hints: string[]; hintsHe: string[] }> = {
-  addlands: {
+
+export const PUZZLE_HINTS: Record<WorldId, { hints: string[]; hintsHe: string[] }> = {
+  training: {
     hints: [
-      'Too much is also a calculation.',
-      'The numbers grow faster than you think.',
-      'Control the pace. Not the power.',
+      'The basics are the foundation.',
+      'Three numbers, four operations.',
+      'Take your time. Learn the patterns.',
     ],
     hintsHe: [
-      'יותר מדי זה גם חישוב.',
-      'המספרים גדלים מהר ממה שאתה חושב.',
-      'שלוט בקצב. לא בכוח.',
+      'היסודות הם הבסיס.',
+      'שלושה מספרים, ארבע פעולות.',
+      'קח את הזמן. למד את הדפוסים.',
     ],
   },
-  subcore: {
+  factory: {
     hints: [
-      'Here every subtraction is a decision.',
-      'Less can be more. But not always.',
-      'One mistake costs dearly.',
+      'Precision powers production.',
+      'Every calculation matters.',
+      'No shortcuts in The Factory.',
     ],
     hintsHe: [
-      'כאן כל חיסור הוא החלטה.',
-      'פחות יכול להיות יותר. אבל לא תמיד.',
-      'טעות אחת עולה ביוקר.',
+      'דיוק מפעיל ייצור.',
+      'כל חישוב חשוב.',
+      'אין קיצורי דרך במפעל.',
     ],
   },
-  multforge: {
+  lab: {
     hints: [
-      'Small becomes mighty here.',
-      'Uncontrolled multiplication is chaos.',
-      'Two becomes four, four becomes eight...',
+      'Four numbers. New possibilities.',
+      'Experiment with different approaches.',
+      'The solution may not be obvious.',
     ],
     hintsHe: [
-      'כאן קטן הופך לאדיר.',
-      'כפל בלי שליטה זה כאוס.',
-      'שניים הופך לארבע, ארבע הופך לשמונה...',
+      'ארבעה מספרים. אפשרויות חדשות.',
+      'נסה גישות שונות.',
+      'הפתרון עשוי לא להיות ברור.',
     ],
   },
-  divvoid: {
+  city: {
     hints: [
-      'Division fragments reality.',
-      'The void whispers of nothingness.',
-      'This is where The Fracture began.',
+      'Systems within systems.',
+      'The city depends on you.',
+      'Think big picture.',
     ],
     hintsHe: [
-      'חילוק מפצל את המציאות.',
-      'התהום לוחשת על האין.',
-      'כאן השבר התחיל.',
+      'מערכות בתוך מערכות.',
+      'העיר תלויה בך.',
+      'חשוב על התמונה הגדולה.',
+    ],
+  },
+  core: {
+    hints: [
+      'This is the heart of everything.',
+      'The Architect\'s final test.',
+      'You were built for this.',
+    ],
+    hintsHe: [
+      'זה הלב של הכל.',
+      'המבחן האחרון של האדריכל.',
+      'נבנית בשביל זה.',
     ],
   },
 };
@@ -454,6 +462,7 @@ export const PUZZLE_HINTS: Record<string, { hints: string[]; hintsHe: string[] }
 // ═══════════════════════════════════════════════════════════════════════════
 // PET REACTIONS - Companion feedback during gameplay
 // ═══════════════════════════════════════════════════════════════════════════
+
 export const PET_REACTIONS = {
   logicFox: {
     success: ['Smart choice.', 'Well calculated.'],
@@ -489,16 +498,22 @@ export const GAMEPLAY_MESSAGES = {
     50: { message: 'LEGENDARY!', messageHe: 'אגדי!' },
   },
   levelUp: {
-    message: 'Level Up!',
-    messageHe: 'עלית שלב!',
-    subtitle: 'Your power grows',
-    subtitleHe: 'הכוח שלך גדל',
+    message: 'Level Complete!',
+    messageHe: 'השלב הושלם!',
+    subtitle: 'Next challenge awaits',
+    subtitleHe: 'האתגר הבא ממתין',
   },
   bossDefeated: {
     message: 'Victory!',
     messageHe: 'ניצחון!',
-    subtitle: 'The Lord is balanced',
-    subtitleHe: 'ה־Lord מאוזן',
+    subtitle: 'The Master is defeated',
+    subtitleHe: 'האדון הובס',
+  },
+  worldComplete: {
+    message: 'World Complete!',
+    messageHe: 'העולם הושלם!',
+    subtitle: 'A new World awaits',
+    subtitleHe: 'עולם חדש ממתין',
   },
 };
 
@@ -506,94 +521,38 @@ export const GAMEPLAY_MESSAGES = {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Get zone by ID
-export function getZoneById(zoneId: string): Zone | undefined {
-  return ZONES.find(z => z.id === zoneId);
+// Get boss profile for a world
+export function getBossProfile(worldId: WorldId): BossProfile {
+  return BOSS_PROFILES[worldId];
 }
 
-// Get current zone based on player level
-export function getCurrentZone(player: PlayerState): Zone {
-  let currentZone = ZONES[0];
-  for (const zone of ZONES) {
-    if (player.level >= zone.unlockLevel) {
-      currentZone = zone;
-    }
-  }
-  return currentZone;
+// Get world story
+export function getWorldStory(worldId: WorldId) {
+  return WORLD_STORIES[worldId];
 }
 
-// Get all unlocked zones for a player
-export function getUnlockedZones(player: PlayerState): Zone[] {
-  return ZONES.filter(zone => player.level >= zone.unlockLevel);
-}
-
-// Get next zone to unlock
-export function getNextZoneToUnlock(player: PlayerState): Zone | null {
-  const nextZone = ZONES.find(zone => player.level < zone.unlockLevel);
-  return nextZone || null;
-}
-
-// Calculate progress within a zone (0-100)
-export function getZoneProgress(
-  player: PlayerState,
-  zone: Zone,
-  puzzlesSolvedInZone: number
-): number {
-  const puzzlesPerBoss = zone.bossEvery;
-  const progressInCycle = puzzlesSolvedInZone % puzzlesPerBoss;
-  return (progressInCycle / puzzlesPerBoss) * 100;
-}
-
-// Check if current puzzle is a boss puzzle
-export function isBossPuzzle(puzzleNumber: number, zone: Zone): boolean {
-  return puzzleNumber > 0 && puzzleNumber % zone.bossEvery === 0;
-}
-
-// Get boss info for a zone
-export function getBossInfo(zone: Zone): {
-  name: string;
-  nameHe: string;
-  difficulty: number;
-} {
-  const boss = BOSS_PROFILES[zone.id];
-  if (boss) {
-    return {
-      name: boss.name,
-      nameHe: boss.nameHe,
-      difficulty: boss.difficulty,
-    };
-  }
-  return { name: 'Boss', nameHe: 'בוס', difficulty: 3 };
-}
-
-// Get full boss profile
-export function getBossProfile(zoneId: string): BossProfile | undefined {
-  return BOSS_PROFILES[zoneId];
-}
-
-// Get zone-specific operators for puzzle generation
-export function getZoneOperators(zone: Zone): Operator[] {
-  return [...zone.ops];
-}
-
-// Check if player can access a zone
-export function canAccessZone(player: PlayerState, zone: Zone): boolean {
-  return player.level >= zone.unlockLevel;
-}
-
-// Get levels needed to unlock next zone
-export function getLevelsToNextZone(player: PlayerState): number | null {
-  const nextZone = getNextZoneToUnlock(player);
-  if (!nextZone) return null;
-  return Math.max(0, nextZone.unlockLevel - player.level);
-}
-
-// Get random lore for a zone
-export function getRandomLore(zoneId: string, hebrew: boolean = true): string {
-  const stories = ZONE_STORIES[zoneId];
+// Get random lore for a world
+export function getRandomLore(worldId: WorldId, hebrew: boolean = true): string {
+  const stories = WORLD_STORIES[worldId];
   if (!stories) return '';
   const loreArray = hebrew ? stories.loreHe : stories.lore;
   return loreArray[Math.floor(Math.random() * loreArray.length)];
+}
+
+// Get random hint for a world
+export function getRandomHint(worldId: WorldId, hebrew: boolean = true): string {
+  const hints = PUZZLE_HINTS[worldId];
+  if (!hints) return '';
+  const hintArray = hebrew ? hints.hintsHe : hints.hints;
+  return hintArray[Math.floor(Math.random() * hintArray.length)];
+}
+
+// Get random echo message for a world
+export function getRandomEcho(worldId: WorldId, hebrew: boolean = true): string {
+  const echo = WORLD_ECHO[worldId];
+  if (!echo) return '';
+  const echoArray = hebrew ? echo.hintsHe : echo.hints;
+  return echoArray[Math.floor(Math.random() * echoArray.length)];
 }
 
 // Get streak message

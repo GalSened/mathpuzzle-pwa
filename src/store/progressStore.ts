@@ -1,305 +1,282 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ZONES, getCurrentZone, getNextZoneToUnlock } from '@/engine/story';
+import { WORLDS, getWorld, getLevel } from '@/engine/worlds';
 import { usePlayerStore } from './playerStore';
-import type { ZoneProgressV2, LevelProgress, ZoneStatus } from '@/engine/types';
-import { MASTERY_THRESHOLD, PUZZLES_PER_LEVEL } from '@/engine/types';
+import type {
+  WorldId,
+  WorldStatus,
+  LevelStatusV3,
+  LevelProgressV3,
+  WorldProgressV3,
+} from '@/engine/types';
 
-// V1 Zone Progress (legacy)
-interface ZoneProgress {
-  solved: number;
-  total: number;
-  bossDefeated: boolean;
-}
+// ============== V3 Progress Store ==============
+// Designed for 5 Worlds × 6 Levels = 30 Total Levels
 
-interface ProgressState {
-  // V1 State (legacy - kept for migration)
-  currentZoneId: string;
-  zoneProgress: Record<string, ZoneProgress>;
-  bossesDefeated: string[];
-  unlockedZones: string[];
-  puzzlesSinceLastBoss: number;
+interface ProgressStateV3 {
+  // Version tracking
+  progressVersion: number;  // 3 = V3
 
-  // V2 State - comprehensive progress tracking
-  zoneProgressV2: Record<string, ZoneProgressV2>;
-  globalLevelCount: number;        // Total levels completed across all zones
-  currentLevelInZone: number;      // Current level number in active zone
-  progressVersion: number;         // For migration detection (2 = V2)
+  // V3 World/Level State
+  worlds: Record<WorldId, WorldProgressV3>;
+  currentWorld: WorldId;
+  currentLevel: number;           // Global level number (1-30)
+  totalLevelsCompleted: number;
+  totalPuzzlesSolved: number;
 
-  // V1 Actions (legacy)
+  // Actions
   initializeProgress: () => void;
-  recordPuzzleSolved: (zoneId: string) => void;
-  defeatBoss: (zoneId: string) => void;
-  checkZoneUnlocks: () => void;
-  setCurrentZone: (zoneId: string) => void;
+  recordPuzzleSolved: () => void;
+  completeLevel: () => void;
+  defeatBoss: () => void;
+  setCurrentWorld: (worldId: WorldId) => void;
+  setCurrentLevel: (levelNumber: number) => void;
   resetProgress: () => void;
 
-  // V2 Actions
-  initializeProgressV2: () => void;
-  recordPuzzleSolvedV2: (zoneId: string) => void;
-  defeatBossV2: (zoneId: string) => void;
-  checkZoneMastery: (zoneId: string) => boolean;
-  checkAndUnlockNextZone: () => void;
-  migrateFromV1: () => void;
+  // Computed / Queries
+  getWorldProgress: (worldId: WorldId) => WorldProgressV3 | undefined;
+  getLevelProgress: (levelNumber: number) => LevelProgressV3 | undefined;
+  isWorldUnlocked: (worldId: WorldId) => boolean;
+  isLevelUnlocked: (levelNumber: number) => boolean;
+  canAdvanceToNextLevel: () => boolean;
+  canAdvanceToNextWorld: () => boolean;
 }
 
-const initialZoneProgress: Record<string, ZoneProgress> = {};
-ZONES.forEach(zone => {
-  initialZoneProgress[zone.id] = {
-    solved: 0,
-    total: 0,
-    bossDefeated: false,
-  };
-});
+// Helper to create initial world progress
+function createInitialWorldProgress(worldId: WorldId, isFirstWorld: boolean): WorldProgressV3 {
+  const world = getWorld(worldId);
+  const levels: Record<number, LevelProgressV3> = {};
 
-// Helper to create initial V2 zone progress
-function createInitialZoneProgressV2(zoneId: string, isFirstZone: boolean): ZoneProgressV2 {
-  const status: ZoneStatus = isFirstZone ? 'in_progress' : 'locked';
-  const initialLevel: LevelProgress = {
-    levelNumber: 1,
+  // Initialize first level of the world
+  const firstLevel = world.levels[0];
+  levels[firstLevel.level] = {
+    levelId: firstLevel.level,
     puzzlesSolved: 0,
-    status: isFirstZone ? 'in_progress' : 'locked',
+    puzzlesRequired: firstLevel.puzzlesRequired,
+    status: isFirstWorld ? 'in_progress' : 'locked',
+    stars: 0,
   };
 
   return {
-    zoneId,
-    status,
-    currentLevel: 1,
-    levels: { 1: initialLevel },
-    totalPuzzlesSolved: 0,
-    totalBossesDefeated: 0,
-    unlockedAt: isFirstZone ? Date.now() : undefined,
+    worldId,
+    status: isFirstWorld ? 'in_progress' : 'locked',
+    levels,
+    unlockedAt: isFirstWorld ? Date.now() : undefined,
   };
 }
 
-// Build initial V2 progress for all zones
-const initialZoneProgressV2: Record<string, ZoneProgressV2> = {};
-ZONES.forEach((zone, index) => {
-  initialZoneProgressV2[zone.id] = createInitialZoneProgressV2(zone.id, index === 0);
-});
+// Build initial V3 progress for all worlds
+function buildInitialV3Progress(): Record<WorldId, WorldProgressV3> {
+  const progress: Record<WorldId, WorldProgressV3> = {} as Record<WorldId, WorldProgressV3>;
+  WORLDS.forEach((world, index) => {
+    progress[world.id] = createInitialWorldProgress(world.id, index === 0);
+  });
+  return progress;
+}
 
-export const useProgressStore = create<ProgressState>()(
+export const useProgressStore = create<ProgressStateV3>()(
   persist(
     (set, get) => ({
-      // V1 State (legacy)
-      currentZoneId: 'addlands',
-      zoneProgress: initialZoneProgress,
-      bossesDefeated: [],
-      unlockedZones: ['addlands'],
-      puzzlesSinceLastBoss: 0,
-
-      // V2 State
-      zoneProgressV2: initialZoneProgressV2,
-      globalLevelCount: 0,
-      currentLevelInZone: 1,
-      progressVersion: 1,  // Will be set to 2 after migration
+      // Initial State
+      progressVersion: 3,
+      worlds: buildInitialV3Progress(),
+      currentWorld: 'training',
+      currentLevel: 1,
+      totalLevelsCompleted: 0,
+      totalPuzzlesSolved: 0,
 
       initializeProgress: () => {
-        const playerStore = usePlayerStore.getState();
-        const currentZone = getCurrentZone(playerStore);
-
-        // Unlock all zones the player's level qualifies for
-        const unlockedZones = ZONES
-          .filter(zone => playerStore.level >= zone.unlockLevel)
-          .map(zone => zone.id);
-
-        set({
-          currentZoneId: currentZone.id,
-          unlockedZones,
-        });
-      },
-
-      recordPuzzleSolved: (zoneId: string) => {
-        set((state) => {
-          const currentProgress = state.zoneProgress[zoneId] || {
-            solved: 0,
-            total: 0,
-            bossDefeated: false,
-          };
-
-          const newProgress = {
-            ...currentProgress,
-            solved: currentProgress.solved + 1,
-            total: currentProgress.total + 1,
-          };
-
-          // Check if it's time for a boss fight
-          const zone = ZONES.find(z => z.id === zoneId);
-          const newPuzzlesSinceLastBoss = state.puzzlesSinceLastBoss + 1;
-          const isBossTime = zone && newPuzzlesSinceLastBoss >= zone.bossEvery;
-
-          return {
-            zoneProgress: {
-              ...state.zoneProgress,
-              [zoneId]: newProgress,
-            },
-            puzzlesSinceLastBoss: isBossTime ? 0 : newPuzzlesSinceLastBoss,
-          };
-        });
-      },
-
-      defeatBoss: (zoneId: string) => {
-        set((state) => {
-          const currentProgress = state.zoneProgress[zoneId];
-
-          // Award boss coins
-          const playerStore = usePlayerStore.getState();
-          playerStore.addCoins(0, 'boss'); // Uses COIN_REWARDS.boss
-
-          return {
-            bossesDefeated: [...state.bossesDefeated, zoneId],
-            zoneProgress: {
-              ...state.zoneProgress,
-              [zoneId]: {
-                ...currentProgress,
-                bossDefeated: true,
-              },
-            },
-            puzzlesSinceLastBoss: 0,
-          };
-        });
-      },
-
-      checkZoneUnlocks: () => {
-        const playerStore = usePlayerStore.getState();
-        const nextZone = getNextZoneToUnlock(playerStore);
-
-        if (nextZone && playerStore.level >= nextZone.unlockLevel) {
-          set((state) => {
-            if (!state.unlockedZones.includes(nextZone.id)) {
-              return {
-                unlockedZones: [...state.unlockedZones, nextZone.id],
-              };
-            }
-            return {};
-          });
-        }
-      },
-
-      setCurrentZone: (zoneId: string) => {
         const state = get();
-        if (state.unlockedZones.includes(zoneId)) {
-          set({ currentZoneId: zoneId });
-        }
-      },
-
-      resetProgress: () => {
-        set({
-          currentZoneId: 'addlands',
-          zoneProgress: initialZoneProgress,
-          bossesDefeated: [],
-          unlockedZones: ['addlands'],
-          puzzlesSinceLastBoss: 0,
-          // Also reset V2 state
-          zoneProgressV2: initialZoneProgressV2,
-          globalLevelCount: 0,
-          currentLevelInZone: 1,
-          progressVersion: 2,
-        });
-      },
-
-      // ============== V2 Actions ==============
-
-      initializeProgressV2: () => {
-        const state = get();
-        // Only initialize if not already at V2
-        if (state.progressVersion >= 2) return;
-
-        // Build fresh V2 progress with first zone unlocked
-        const freshV2Progress: Record<string, ZoneProgressV2> = {};
-        ZONES.forEach((zone, index) => {
-          freshV2Progress[zone.id] = createInitialZoneProgressV2(zone.id, index === 0);
-        });
+        if (state.progressVersion >= 3) return;
 
         set({
-          zoneProgressV2: freshV2Progress,
-          globalLevelCount: 0,
-          currentLevelInZone: 1,
-          progressVersion: 2,
+          worlds: buildInitialV3Progress(),
+          currentWorld: 'training',
+          currentLevel: 1,
+          totalLevelsCompleted: 0,
+          totalPuzzlesSolved: 0,
+          progressVersion: 3,
         });
       },
 
-      recordPuzzleSolvedV2: (zoneId: string) => {
+      recordPuzzleSolved: () => {
         set((state) => {
-          const zoneProgress = state.zoneProgressV2[zoneId];
-          if (!zoneProgress || zoneProgress.status === 'locked') {
-            return {}; // Guard: can't record progress in locked zone
+          const levelConfig = getLevel(state.currentLevel);
+          const worldProgress = state.worlds[levelConfig.worldId];
+
+          if (!worldProgress || worldProgress.status === 'locked') {
+            return {}; // Guard: can't record in locked world
           }
 
-          const currentLevelNum = zoneProgress.currentLevel;
-          const currentLevel = zoneProgress.levels[currentLevelNum] || {
-            levelNumber: currentLevelNum,
+          // Get or initialize level progress
+          const levelProgress = worldProgress.levels[state.currentLevel] || {
+            levelId: state.currentLevel,
             puzzlesSolved: 0,
-            status: 'in_progress' as const,
+            puzzlesRequired: levelConfig.puzzlesRequired,
+            status: 'in_progress' as LevelStatusV3,
+            stars: 0,
           };
 
           // Increment puzzle count
-          const newPuzzlesSolved = currentLevel.puzzlesSolved + 1;
-          const levelComplete = newPuzzlesSolved >= PUZZLES_PER_LEVEL;
+          const newPuzzlesSolved = levelProgress.puzzlesSolved + 1;
+          const levelComplete = newPuzzlesSolved >= levelConfig.puzzlesRequired;
 
-          const updatedLevel: LevelProgress = {
-            ...currentLevel,
+          const updatedLevel: LevelProgressV3 = {
+            ...levelProgress,
             puzzlesSolved: newPuzzlesSolved,
             status: levelComplete ? 'completed' : 'in_progress',
-            completedAt: levelComplete ? Date.now() : currentLevel.completedAt,
+            completedAt: levelComplete ? Date.now() : levelProgress.completedAt,
           };
 
-          // If level complete, prepare next level
-          const newLevels: Record<number, LevelProgress> = { ...zoneProgress.levels, [currentLevelNum]: updatedLevel };
-          let newCurrentLevel = currentLevelNum;
-          let newGlobalCount = state.globalLevelCount;
-
-          if (levelComplete) {
-            newCurrentLevel = currentLevelNum + 1;
-            newGlobalCount += 1;
-            // Initialize next level
-            newLevels[newCurrentLevel] = {
-              levelNumber: newCurrentLevel,
-              puzzlesSolved: 0,
-              status: 'in_progress',
-            };
-          }
-
-          const updatedZoneProgress: ZoneProgressV2 = {
-            ...zoneProgress,
-            currentLevel: newCurrentLevel,
-            levels: newLevels,
-            totalPuzzlesSolved: zoneProgress.totalPuzzlesSolved + 1,
+          // Update world progress
+          const updatedWorldProgress: WorldProgressV3 = {
+            ...worldProgress,
+            levels: {
+              ...worldProgress.levels,
+              [state.currentLevel]: updatedLevel,
+            },
           };
+
+          // Award coins
+          const playerStore = usePlayerStore.getState();
+          playerStore.addCoins(0, 'puzzle');
 
           return {
-            zoneProgressV2: {
-              ...state.zoneProgressV2,
-              [zoneId]: updatedZoneProgress,
+            worlds: {
+              ...state.worlds,
+              [levelConfig.worldId]: updatedWorldProgress,
             },
-            currentLevelInZone: newCurrentLevel,
-            globalLevelCount: newGlobalCount,
+            totalPuzzlesSolved: state.totalPuzzlesSolved + 1,
           };
         });
       },
 
-      defeatBossV2: (zoneId: string) => {
+      completeLevel: () => {
         set((state) => {
-          const zoneProgress = state.zoneProgressV2[zoneId];
-          if (!zoneProgress || zoneProgress.status === 'locked') {
-            return {}; // Guard: can't defeat boss in locked zone
+          const levelConfig = getLevel(state.currentLevel);
+          const worldProgress = state.worlds[levelConfig.worldId];
+
+          if (!worldProgress) return {};
+
+          const levelProgress = worldProgress.levels[state.currentLevel];
+          if (!levelProgress || levelProgress.status === 'completed') return {};
+
+          // Mark level as complete
+          const updatedLevel: LevelProgressV3 = {
+            ...levelProgress,
+            status: 'completed',
+            completedAt: Date.now(),
+          };
+
+          // Check if this is the last level in the world
+          const world = getWorld(levelConfig.worldId);
+          const isLastLevelInWorld = levelConfig.worldLevel === 6;
+          const worldComplete = isLastLevelInWorld;
+
+          // Update world status if complete
+          const updatedWorldProgress: WorldProgressV3 = {
+            ...worldProgress,
+            levels: {
+              ...worldProgress.levels,
+              [state.currentLevel]: updatedLevel,
+            },
+            status: worldComplete ? 'completed' : 'in_progress',
+            completedAt: worldComplete ? Date.now() : worldProgress.completedAt,
+          };
+
+          // Determine next level/world
+          let newCurrentLevel = state.currentLevel;
+          let newCurrentWorld = state.currentWorld;
+          const updatedWorlds = {
+            ...state.worlds,
+            [levelConfig.worldId]: updatedWorldProgress,
+          };
+
+          if (worldComplete) {
+            // Unlock next world if exists
+            const nextWorldIndex = WORLDS.findIndex((w) => w.id === levelConfig.worldId) + 1;
+            if (nextWorldIndex < WORLDS.length) {
+              const nextWorld = WORLDS[nextWorldIndex];
+              const nextWorldProgress = state.worlds[nextWorld.id];
+
+              if (nextWorldProgress && nextWorldProgress.status === 'locked') {
+                // Initialize first level of next world
+                const firstLevelOfNextWorld = nextWorld.levels[0];
+                updatedWorlds[nextWorld.id] = {
+                  ...nextWorldProgress,
+                  status: 'in_progress',
+                  unlockedAt: Date.now(),
+                  levels: {
+                    ...nextWorldProgress.levels,
+                    [firstLevelOfNextWorld.level]: {
+                      levelId: firstLevelOfNextWorld.level,
+                      puzzlesSolved: 0,
+                      puzzlesRequired: firstLevelOfNextWorld.puzzlesRequired,
+                      status: 'in_progress',
+                      stars: 0,
+                    },
+                  },
+                };
+
+                newCurrentWorld = nextWorld.id;
+                newCurrentLevel = firstLevelOfNextWorld.level;
+              }
+            }
+          } else {
+            // Move to next level in same world
+            const nextLevelInWorld = state.currentLevel + 1;
+            const nextLevelConfig = getLevel(nextLevelInWorld);
+
+            // Initialize next level
+            updatedWorlds[levelConfig.worldId] = {
+              ...updatedWorldProgress,
+              levels: {
+                ...updatedWorldProgress.levels,
+                [nextLevelInWorld]: {
+                  levelId: nextLevelInWorld,
+                  puzzlesSolved: 0,
+                  puzzlesRequired: nextLevelConfig.puzzlesRequired,
+                  status: 'in_progress',
+                  stars: 0,
+                },
+              },
+            };
+
+            newCurrentLevel = nextLevelInWorld;
           }
 
-          const currentLevelNum = zoneProgress.currentLevel;
-          const currentLevel = zoneProgress.levels[currentLevelNum];
+          return {
+            worlds: updatedWorlds,
+            currentWorld: newCurrentWorld,
+            currentLevel: newCurrentLevel,
+            totalLevelsCompleted: state.totalLevelsCompleted + 1,
+          };
+        });
+      },
 
-          if (!currentLevel) return {};
+      defeatBoss: () => {
+        set((state) => {
+          const levelConfig = getLevel(state.currentLevel);
+          if (!levelConfig.isBoss) return {}; // Guard: not a boss level
 
-          // Record boss defeat on current level
-          const updatedLevel: LevelProgress = {
-            ...currentLevel,
+          const worldProgress = state.worlds[levelConfig.worldId];
+          if (!worldProgress) return {};
+
+          const levelProgress = worldProgress.levels[state.currentLevel];
+          if (!levelProgress) return {};
+
+          // Mark boss as defeated
+          const updatedLevel: LevelProgressV3 = {
+            ...levelProgress,
             bossDefeatedAt: Date.now(),
           };
 
-          const updatedZoneProgress: ZoneProgressV2 = {
-            ...zoneProgress,
-            levels: { ...zoneProgress.levels, [currentLevelNum]: updatedLevel },
-            totalBossesDefeated: zoneProgress.totalBossesDefeated + 1,
+          const updatedWorldProgress: WorldProgressV3 = {
+            ...worldProgress,
+            levels: {
+              ...worldProgress.levels,
+              [state.currentLevel]: updatedLevel,
+            },
           };
 
           // Award boss coins
@@ -307,315 +284,259 @@ export const useProgressStore = create<ProgressState>()(
           playerStore.addCoins(0, 'boss');
 
           return {
-            zoneProgressV2: {
-              ...state.zoneProgressV2,
-              [zoneId]: updatedZoneProgress,
+            worlds: {
+              ...state.worlds,
+              [levelConfig.worldId]: updatedWorldProgress,
             },
           };
         });
       },
 
-      checkZoneMastery: (zoneId: string) => {
+      setCurrentWorld: (worldId: WorldId) => {
         const state = get();
-        const zoneProgress = state.zoneProgressV2[zoneId];
+        const worldProgress = state.worlds[worldId];
 
-        if (!zoneProgress || zoneProgress.status === 'mastered') {
-          return zoneProgress?.status === 'mastered';
-        }
+        if (worldProgress && worldProgress.status !== 'locked') {
+          // Find the current active level in this world
+          const world = getWorld(worldId);
+          let currentLevelInWorld = world.levels[0].level;
 
-        // Get zone operators
-        const zone = ZONES.find(z => z.id === zoneId);
-        if (!zone) return false;
-
-        // Check skill mastery for all zone operators
-        const playerStore = usePlayerStore.getState();
-        const allOperatorsMastered = zone.ops.every(
-          op => playerStore.skill[op] >= MASTERY_THRESHOLD
-        );
-
-        if (allOperatorsMastered) {
-          // Mark zone as mastered
-          set((s) => ({
-            zoneProgressV2: {
-              ...s.zoneProgressV2,
-              [zoneId]: {
-                ...s.zoneProgressV2[zoneId],
-                status: 'mastered',
-                masteredAt: Date.now(),
-              },
-            },
-          }));
-          return true;
-        }
-
-        return false;
-      },
-
-      checkAndUnlockNextZone: () => {
-        const state = get();
-        const currentZoneId = state.currentZoneId;
-        const currentZoneProgress = state.zoneProgressV2[currentZoneId];
-
-        // Guard: only unlock if current zone is mastered
-        if (!currentZoneProgress || currentZoneProgress.status !== 'mastered') {
-          return;
-        }
-
-        // Find next zone in sequence
-        const currentZoneIndex = ZONES.findIndex(z => z.id === currentZoneId);
-        const nextZone = ZONES[currentZoneIndex + 1];
-
-        if (!nextZone) return; // No more zones to unlock
-
-        const nextZoneProgress = state.zoneProgressV2[nextZone.id];
-        if (nextZoneProgress && nextZoneProgress.status === 'locked') {
-          // Unlock next zone
-          set((s) => ({
-            zoneProgressV2: {
-              ...s.zoneProgressV2,
-              [nextZone.id]: {
-                ...s.zoneProgressV2[nextZone.id],
-                status: 'in_progress',
-                unlockedAt: Date.now(),
-                levels: {
-                  1: {
-                    levelNumber: 1,
-                    puzzlesSolved: 0,
-                    status: 'in_progress',
-                  },
-                },
-              },
-            },
-            // Also update V1 for backwards compatibility
-            unlockedZones: [...s.unlockedZones, nextZone.id],
-          }));
-        }
-      },
-
-      migrateFromV1: () => {
-        const state = get();
-
-        // Skip if already migrated
-        if (state.progressVersion >= 2) return;
-
-        // Build V2 progress from V1 data
-        const migratedV2Progress: Record<string, ZoneProgressV2> = {};
-
-        ZONES.forEach((zone) => {
-          const v1Progress = state.zoneProgress[zone.id];
-          const isUnlocked = state.unlockedZones.includes(zone.id);
-          const bossDefeated = state.bossesDefeated.includes(zone.id);
-
-          // Calculate levels from V1 puzzles solved
-          const puzzlesSolved = v1Progress?.solved || 0;
-          const completedLevels = Math.floor(puzzlesSolved / PUZZLES_PER_LEVEL);
-          const puzzlesInCurrentLevel = puzzlesSolved % PUZZLES_PER_LEVEL;
-          const currentLevel = completedLevels + 1;
-
-          // Build levels record
-          const levels: Record<number, LevelProgress> = {};
-          for (let i = 1; i <= completedLevels; i++) {
-            levels[i] = {
-              levelNumber: i,
-              puzzlesSolved: PUZZLES_PER_LEVEL,
-              status: 'completed',
-              completedAt: Date.now(), // Approximate
-            };
+          // Find highest unlocked level
+          for (const level of world.levels) {
+            const progress = worldProgress.levels[level.level];
+            if (progress && progress.status !== 'locked') {
+              currentLevelInWorld = level.level;
+              if (progress.status === 'in_progress') break;
+            }
           }
-          // Current level
-          levels[currentLevel] = {
-            levelNumber: currentLevel,
-            puzzlesSolved: puzzlesInCurrentLevel,
-            status: puzzlesInCurrentLevel > 0 ? 'in_progress' : (isUnlocked ? 'in_progress' : 'locked'),
-          };
 
-          // Check mastery status based on skills
-          const playerStore = usePlayerStore.getState();
-          const allOpsMastered = zone.ops.every(
-            op => playerStore.skill[op] >= MASTERY_THRESHOLD
-          );
+          set({
+            currentWorld: worldId,
+            currentLevel: currentLevelInWorld,
+          });
+        }
+      },
 
-          const status: ZoneStatus = allOpsMastered
-            ? 'mastered'
-            : (isUnlocked ? 'in_progress' : 'locked');
+      setCurrentLevel: (levelNumber: number) => {
+        const state = get();
+        try {
+          const levelConfig = getLevel(levelNumber);
+          const worldProgress = state.worlds[levelConfig.worldId];
 
-          migratedV2Progress[zone.id] = {
-            zoneId: zone.id,
-            status,
-            currentLevel,
-            levels,
-            totalPuzzlesSolved: puzzlesSolved,
-            totalBossesDefeated: bossDefeated ? 1 : 0,
-            masteredAt: allOpsMastered ? Date.now() : undefined,
-            unlockedAt: isUnlocked ? Date.now() : undefined,
-          };
-        });
+          if (!worldProgress || worldProgress.status === 'locked') return;
 
-        // Calculate global level count
-        const globalLevelCount = Object.values(migratedV2Progress)
-          .reduce((sum, zp) => sum + Math.floor(zp.totalPuzzlesSolved / PUZZLES_PER_LEVEL), 0);
+          const levelProgress = worldProgress.levels[levelNumber];
+          if (levelProgress && levelProgress.status !== 'locked') {
+            set({
+              currentWorld: levelConfig.worldId,
+              currentLevel: levelNumber,
+            });
+          }
+        } catch {
+          // Invalid level number
+        }
+      },
 
+      resetProgress: () => {
         set({
-          zoneProgressV2: migratedV2Progress,
-          globalLevelCount,
-          currentLevelInZone: migratedV2Progress[state.currentZoneId]?.currentLevel || 1,
-          progressVersion: 2,
+          worlds: buildInitialV3Progress(),
+          currentWorld: 'training',
+          currentLevel: 1,
+          totalLevelsCompleted: 0,
+          totalPuzzlesSolved: 0,
+          progressVersion: 3,
         });
+      },
+
+      // Query methods
+      getWorldProgress: (worldId: WorldId) => {
+        return get().worlds[worldId];
+      },
+
+      getLevelProgress: (levelNumber: number) => {
+        const state = get();
+        try {
+          const levelConfig = getLevel(levelNumber);
+          const worldProgress = state.worlds[levelConfig.worldId];
+          return worldProgress?.levels[levelNumber];
+        } catch {
+          return undefined;
+        }
+      },
+
+      isWorldUnlocked: (worldId: WorldId) => {
+        const worldProgress = get().worlds[worldId];
+        return worldProgress ? worldProgress.status !== 'locked' : false;
+      },
+
+      isLevelUnlocked: (levelNumber: number) => {
+        const state = get();
+        try {
+          const levelConfig = getLevel(levelNumber);
+          const worldProgress = state.worlds[levelConfig.worldId];
+          if (!worldProgress || worldProgress.status === 'locked') return false;
+
+          const levelProgress = worldProgress.levels[levelNumber];
+          return levelProgress ? levelProgress.status !== 'locked' : false;
+        } catch {
+          return false;
+        }
+      },
+
+      canAdvanceToNextLevel: () => {
+        const state = get();
+        const levelProgress = state.getLevelProgress(state.currentLevel);
+        return levelProgress?.status === 'completed';
+      },
+
+      canAdvanceToNextWorld: () => {
+        const state = get();
+        const worldProgress = state.worlds[state.currentWorld];
+        return worldProgress?.status === 'completed';
       },
     }),
     {
-      name: 'mathpuzzle-progress',
-      version: 2,
+      name: 'mathpuzzle-progress-v3',
+      version: 3,
       partialize: (state) => ({
-        // V1 State (kept for backwards compatibility)
-        currentZoneId: state.currentZoneId,
-        zoneProgress: state.zoneProgress,
-        bossesDefeated: state.bossesDefeated,
-        unlockedZones: state.unlockedZones,
-        puzzlesSinceLastBoss: state.puzzlesSinceLastBoss,
-        // V2 State
-        zoneProgressV2: state.zoneProgressV2,
-        globalLevelCount: state.globalLevelCount,
-        currentLevelInZone: state.currentLevelInZone,
         progressVersion: state.progressVersion,
+        worlds: state.worlds,
+        currentWorld: state.currentWorld,
+        currentLevel: state.currentLevel,
+        totalLevelsCompleted: state.totalLevelsCompleted,
+        totalPuzzlesSolved: state.totalPuzzlesSolved,
       }),
-      // Migration function to handle upgrading from old storage versions
       migrate: (persistedState: unknown, version: number) => {
-        const state = persistedState as Partial<ProgressState>;
-
-        // Migrate from version 0 or 1 (before V2 progress tracking)
-        if (version < 2) {
-          // Build V2 progress from V1 data
-          const migratedV2Progress: Record<string, ZoneProgressV2> = {};
-
-          ZONES.forEach((zone) => {
-            const v1Progress = state.zoneProgress?.[zone.id];
-            const isUnlocked = state.unlockedZones?.includes(zone.id) || zone.id === 'addlands';
-            const bossDefeated = state.bossesDefeated?.includes(zone.id) || false;
-
-            // Calculate levels from V1 puzzles solved
-            const puzzlesSolved = v1Progress?.solved || 0;
-            const completedLevels = Math.floor(puzzlesSolved / PUZZLES_PER_LEVEL);
-            const puzzlesInCurrentLevel = puzzlesSolved % PUZZLES_PER_LEVEL;
-            const currentLevel = completedLevels + 1;
-
-            // Build levels record
-            const levels: Record<number, LevelProgress> = {};
-            for (let i = 1; i <= completedLevels; i++) {
-              levels[i] = {
-                levelNumber: i,
-                puzzlesSolved: PUZZLES_PER_LEVEL,
-                status: 'completed',
-                completedAt: Date.now(),
-              };
-            }
-            // Current level
-            levels[currentLevel] = {
-              levelNumber: currentLevel,
-              puzzlesSolved: puzzlesInCurrentLevel,
-              status: isUnlocked ? 'in_progress' : 'locked',
-            };
-
-            // Determine zone status
-            const status: ZoneStatus = isUnlocked ? 'in_progress' : 'locked';
-
-            migratedV2Progress[zone.id] = {
-              zoneId: zone.id,
-              status,
-              currentLevel,
-              levels,
-              totalPuzzlesSolved: puzzlesSolved,
-              totalBossesDefeated: bossDefeated ? 1 : 0,
-              unlockedAt: isUnlocked ? Date.now() : undefined,
-            };
-          });
-
-          // Calculate global level count
-          const globalLevelCount = Object.values(migratedV2Progress)
-            .reduce((sum, zp) => sum + Math.floor(zp.totalPuzzlesSolved / PUZZLES_PER_LEVEL), 0);
-
+        // Fresh start for V3 - no migration from old zone system
+        if (version < 3) {
           return {
-            ...state,
-            zoneProgressV2: migratedV2Progress,
-            globalLevelCount,
-            currentLevelInZone: migratedV2Progress[state.currentZoneId || 'addlands']?.currentLevel || 1,
-            progressVersion: 2,
+            progressVersion: 3,
+            worlds: buildInitialV3Progress(),
+            currentWorld: 'training' as WorldId,
+            currentLevel: 1,
+            totalLevelsCompleted: 0,
+            totalPuzzlesSolved: 0,
           };
         }
-
-        return state;
+        return persistedState;
       },
     }
   )
 );
 
-// Helper hooks
-export function useCurrentZone() {
-  const currentZoneId = useProgressStore((state) => state.currentZoneId);
-  return ZONES.find(z => z.id === currentZoneId) || ZONES[0];
+// ============== Selector Hooks ==============
+
+// Get current world config
+export function useCurrentWorld() {
+  const currentWorld = useProgressStore((state) => state.currentWorld);
+  return getWorld(currentWorld);
 }
 
-export function useZoneProgress(zoneId: string) {
-  return useProgressStore((state) => state.zoneProgress[zoneId]);
+// Get current level config
+export function useCurrentLevel() {
+  const currentLevel = useProgressStore((state) => state.currentLevel);
+  return getLevel(currentLevel);
 }
 
-export function useIsBossTime() {
-  const puzzlesSinceLastBoss = useProgressStore((state) => state.puzzlesSinceLastBoss);
-  const currentZoneId = useProgressStore((state) => state.currentZoneId);
-  const zone = ZONES.find(z => z.id === currentZoneId);
-  return zone ? puzzlesSinceLastBoss >= zone.bossEvery - 1 : false;
-}
-
-// ============== V2 Selector Hooks ==============
-
-// Get V2 progress for a specific zone
-export function useZoneProgressV2(zoneId: string) {
-  return useProgressStore((state) => state.zoneProgressV2[zoneId]);
-}
-
-// Get current level progress in the active zone
+// Get current level progress
 export function useCurrentLevelProgress() {
-  const currentZoneId = useProgressStore((state) => state.currentZoneId);
-  const zoneProgressV2 = useProgressStore((state) => state.zoneProgressV2);
-  const zoneProgress = zoneProgressV2[currentZoneId];
+  const currentLevel = useProgressStore((state) => state.currentLevel);
+  const worlds = useProgressStore((state) => state.worlds);
 
-  if (!zoneProgress) return null;
+  try {
+    const levelConfig = getLevel(currentLevel);
+    const worldProgress = worlds[levelConfig.worldId];
+    const levelProgress = worldProgress?.levels[currentLevel];
 
-  const currentLevel = zoneProgress.levels[zoneProgress.currentLevel];
-  return {
-    levelNumber: zoneProgress.currentLevel,
-    puzzlesSolved: currentLevel?.puzzlesSolved || 0,
-    puzzlesRequired: PUZZLES_PER_LEVEL,
-    status: currentLevel?.status || 'locked',
-  };
+    return {
+      levelNumber: currentLevel,
+      worldLevel: levelConfig.worldLevel,
+      puzzlesSolved: levelProgress?.puzzlesSolved || 0,
+      puzzlesRequired: levelConfig.puzzlesRequired,
+      status: levelProgress?.status || 'locked',
+      isBoss: levelConfig.isBoss,
+      tier: levelConfig.tier,
+      nameHe: levelConfig.nameHe,
+      name: levelConfig.name,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Get world progress for display
+export function useWorldProgress(worldId: WorldId) {
+  const worlds = useProgressStore((state) => state.worlds);
+  return worlds[worldId];
 }
 
 // Get global progress summary
 export function useGlobalProgress() {
-  const zoneProgressV2 = useProgressStore((state) => state.zoneProgressV2);
-  const globalLevelCount = useProgressStore((state) => state.globalLevelCount);
+  const worlds = useProgressStore((state) => state.worlds);
+  const totalLevelsCompleted = useProgressStore((state) => state.totalLevelsCompleted);
+  const totalPuzzlesSolved = useProgressStore((state) => state.totalPuzzlesSolved);
 
-  const zones = Object.values(zoneProgressV2);
-  const masteredZones = zones.filter(z => z.status === 'mastered').length;
-  const totalZones = zones.length;
-  const totalPuzzlesSolved = zones.reduce((sum, z) => sum + z.totalPuzzlesSolved, 0);
+  const worldsArray = Object.values(worlds);
+  const completedWorlds = worldsArray.filter((w) => w.status === 'completed').length;
+  const totalWorlds = WORLDS.length;
 
   return {
-    totalLevelsCompleted: globalLevelCount,
-    masteredZones,
-    totalZones,
+    totalLevelsCompleted,
     totalPuzzlesSolved,
-    completionPercentage: totalZones > 0 ? Math.round((masteredZones / totalZones) * 100) : 0,
+    completedWorlds,
+    totalWorlds,
+    totalLevels: 30,
+    completionPercentage: Math.round((totalLevelsCompleted / 30) * 100),
+    worldCompletionPercentage: Math.round((completedWorlds / totalWorlds) * 100),
   };
 }
 
-// Check if a zone is unlocked (V2)
-export function useIsZoneUnlocked(zoneId: string) {
-  const zoneProgress = useProgressStore((state) => state.zoneProgressV2[zoneId]);
-  return zoneProgress ? zoneProgress.status !== 'locked' : false;
+// Check if it's boss time (current level is a boss level)
+export function useIsBossLevel() {
+  const currentLevel = useProgressStore((state) => state.currentLevel);
+  try {
+    const levelConfig = getLevel(currentLevel);
+    return levelConfig.isBoss;
+  } catch {
+    return false;
+  }
 }
 
-// Check if progress has been migrated to V2
-export function useIsProgressV2() {
-  return useProgressStore((state) => state.progressVersion >= 2);
+// Get all worlds with their status for WorldMap
+export function useAllWorldsProgress() {
+  const worlds = useProgressStore((state) => state.worlds);
+
+  return WORLDS.map((world) => {
+    const progress = worlds[world.id];
+    const completedLevels = progress
+      ? Object.values(progress.levels).filter((l) => l.status === 'completed').length
+      : 0;
+
+    return {
+      ...world,
+      status: progress?.status || 'locked',
+      completedLevels,
+      totalLevels: 6,
+    };
+  });
+}
+
+// Get all levels for a world with their status
+export function useWorldLevelsProgress(worldId: WorldId) {
+  const worlds = useProgressStore((state) => state.worlds);
+  const worldProgress = worlds[worldId];
+  const world = getWorld(worldId);
+
+  return world.levels.map((level) => {
+    const levelProgress = worldProgress?.levels[level.level];
+
+    return {
+      ...level,
+      status: levelProgress?.status || 'locked',
+      puzzlesSolved: levelProgress?.puzzlesSolved || 0,
+      stars: levelProgress?.stars || 0,
+      completedAt: levelProgress?.completedAt,
+      bossDefeatedAt: levelProgress?.bossDefeatedAt,
+    };
+  });
 }

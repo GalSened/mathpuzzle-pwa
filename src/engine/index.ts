@@ -1,7 +1,7 @@
 export * from './types';
 export { PuzzleSolver, solver } from './solver';
 export { PuzzleGenerator, generator } from './generator';
-export { DIFFICULTY_PRESETS, DIFFICULTY_LABELS, adjustDifficulty } from './difficulty';
+export { DIFFICULTY_PRESETS, DIFFICULTY_LABELS, adjustDifficulty, getTierDifficultyProfile, getLevelDifficultyProfile } from './difficulty';
 export { computeSignature, SignatureHistory } from './signatures';
 export { generateHint, evaluateAttempt } from './hints';
 export {
@@ -12,16 +12,35 @@ export {
   extractUsedOperators
 } from './adaptive';
 export {
-  ZONES,
-  getZoneById,
-  getCurrentZone,
-  getUnlockedZones,
-  getNextZoneToUnlock,
-  getZoneProgress,
-  isBossPuzzle,
-  getBossInfo,
-  getZoneOperators,
-  canAccessZone,
-  getLevelsToNextZone,
-  ZONE_STORIES
+  BOSS_PROFILES,
+  WORLD_STORIES,
+  WORLD_ECHO,
+  PUZZLE_HINTS,
+  PROLOGUE,
+  PET_REACTIONS,
+  GAMEPLAY_MESSAGES,
+  getBossProfile,
+  getWorldStory,
+  getRandomLore,
+  getRandomHint,
+  getRandomEcho,
+  getStreakMessage
 } from './story';
+export {
+  WORLDS,
+  getWorld,
+  getLevel,
+  getWorldLevels,
+  getLevelWorld,
+  getNextWorld,
+  getPreviousWorld,
+  canUnlockWorld,
+  TOTAL_LEVELS,
+  TOTAL_WORLDS
+} from './worlds';
+export {
+  ALL_OPERATORS,
+  TIER_PRESETS,
+  TIER_NUMBER_RANGES,
+  TIER_TARGET_RANGES
+} from './tiers';

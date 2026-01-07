@@ -2,19 +2,20 @@
 
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { Zone } from '@/engine/types';
-import { ZONE_STORIES, BOSS_PROFILES } from '@/engine/story';
+import type { WorldConfig, WorldId } from '@/engine/types';
+import { WORLD_STORIES, getBossProfile } from '@/engine/story';
 import { playBossAppear } from '@/lib/sounds';
 
 interface BossAnnouncementProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
-  zone: Zone;
+  world: WorldConfig;
   onStart: () => void;
 }
 
-export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementProps) {
-  const storyText = ZONE_STORIES[zone.id]?.bossIntroHe || 'הבוס מופיע!';
-  const bossProfile = BOSS_PROFILES[zone.id];
+export function BossAnnouncement({ bossInfo, world, onStart }: BossAnnouncementProps) {
+  const worldId = world.id as WorldId;
+  const storyText = WORLD_STORIES[worldId]?.bossIntroHe || 'הבוס מופיע!';
+  const bossProfile = getBossProfile(worldId);
   const bossVisual = bossProfile?.visual || '👹';
   const bossTitle = bossProfile?.titleHe || '';
   const bossTaunt = bossProfile?.tauntHe || '';
@@ -35,7 +36,7 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
       exit={{ opacity: 0 }}
     >
       <motion.div
-        className={`relative max-w-md w-full rounded-2xl p-8 text-center border-2 border-red-500 bg-gradient-to-b ${zone.theme.background}`}
+        className={`relative max-w-md w-full rounded-2xl p-8 text-center border-2 border-red-500 bg-gradient-to-b ${world.theme.background}`}
         initial={{ scale: 0.3, opacity: 0, rotateY: 180 }}
         animate={{ scale: 1, opacity: 1, rotateY: 0 }}
         transition={{ type: 'spring', damping: 15, duration: 0.6 }}
@@ -135,14 +136,14 @@ export function BossAnnouncement({ bossInfo, zone, onStart }: BossAnnouncementPr
           </motion.div>
         )}
 
-        {/* Zone name */}
+        {/* World name */}
         <motion.div
           className="text-gray-400 text-sm mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.75 }}
         >
-          {zone.nameHe}
+          {world.nameHe}
         </motion.div>
 
         {/* Start button */}

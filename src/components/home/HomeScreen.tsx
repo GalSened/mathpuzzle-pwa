@@ -3,21 +3,29 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
-import { useProgressStore } from '@/store/progressStore';
+import {
+  useProgressStore,
+  useCurrentWorld,
+  useCurrentLevel,
+  useCurrentLevelProgress,
+  useAllWorldsProgress,
+  useWorldLevelsProgress,
+  useIsBossLevel,
+  useGlobalProgress,
+} from '@/store/progressStore';
 import { useGameStore } from '@/store/gameStore';
 import { useUserStore } from '@/store/userStore';
-import { getZoneById, ZONES, getBossInfo } from '@/engine/story';
+import { WORLDS, getWorld, getLevel } from '@/engine/worlds';
 import { BossAnnouncement } from '@/components/game/BossAnnouncement';
 import { BossVictory } from '@/components/game/BossVictory';
-import { ZoneBanner, ZoneCard } from '@/components/ui/ZoneBackground';
-import { ZoneMasteryModal } from '@/components/ui/ZoneMasteryModal';
 import { BottomNav, NavTab, TopBar } from '@/components/navigation';
 import { ShopPage, InventoryView } from '@/components/shop';
 import { LevelUpModal } from '@/components/ui/CoinDisplay';
 import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
 import { OperatorGuide, ZoneIntro } from '@/components/onboarding/OperatorGuide';
-import type { Operator, OperatorSkill, ZoneProgressV2 } from '@/engine/types';
+import type { Operator, OperatorSkill, WorldId, WorldConfig } from '@/engine/types';
+import { ALL_OPERATORS } from '@/engine/tiers';
 
 interface HomeScreenProps {
   initialTab?: NavTab;
@@ -33,43 +41,24 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   const pendingLevelUp = usePlayerStore((s) => s.pendingLevelUp);
   const clearPendingLevelUp = usePlayerStore((s) => s.clearPendingLevelUp);
 
-  const currentZoneId = useProgressStore((s) => s.currentZoneId);
-  const unlockedZones = useProgressStore((s) => s.unlockedZones);
-  const setCurrentZone = useProgressStore((s) => s.setCurrentZone);
-  const checkZoneUnlocks = useProgressStore((s) => s.checkZoneUnlocks);
+  const currentWorld = useCurrentWorld();
+  const currentLevelConfig = useCurrentLevel();
+  const setCurrentWorld = useProgressStore((s) => s.setCurrentWorld);
+  const setCurrentLevel = useProgressStore((s) => s.setCurrentLevel);
+  const allWorldsProgress = useAllWorldsProgress();
+  const globalProgress = useGlobalProgress();
 
-  // V2 progress tracking
-  const zoneProgressV2 = useProgressStore((s) => s.zoneProgressV2);
-  const initializeProgressV2 = useProgressStore((s) => s.initializeProgressV2);
-  const progressVersion = useProgressStore((s) => s.progressVersion);
-  const migrateFromV1 = useProgressStore((s) => s.migrateFromV1);
-
-  const currentZone = getZoneById(currentZoneId);
-
-  // Initialize V2 progress on mount (or migrate from V1)
-  useEffect(() => {
-    if (progressVersion === 1) {
-      // Migrate existing V1 data to V2
-      migrateFromV1();
-    } else if (Object.keys(zoneProgressV2).length === 0) {
-      // First time user - initialize V2
-      initializeProgressV2();
-    }
-  }, [progressVersion, zoneProgressV2, migrateFromV1, initializeProgressV2]);
-
-  // Check for zone unlocks when level changes (V1 compatibility)
-  useEffect(() => {
-    checkZoneUnlocks();
-  }, [level, checkZoneUnlocks]);
-
-  const handleZoneSelect = (zoneId: string) => {
-    setCurrentZone(zoneId);
-    useGameStore.getState().setZone(zoneId);
+  const handleWorldSelect = (worldId: WorldId) => {
+    setCurrentWorld(worldId);
   };
 
-  const handleStartGame = (zoneId?: string) => {
-    if (zoneId) {
-      handleZoneSelect(zoneId);
+  const handleLevelSelect = (levelNumber: number) => {
+    setCurrentLevel(levelNumber);
+  };
+
+  const handleStartGame = (worldId?: WorldId) => {
+    if (worldId) {
+      handleWorldSelect(worldId);
     }
     setActiveTab('play');
   };
@@ -79,17 +68,18 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
       case 'home':
         return (
           <HomeContent
-            currentZone={currentZone}
-            unlockedZones={unlockedZones}
+            currentWorld={currentWorld}
+            allWorlds={allWorldsProgress}
             onStartGame={handleStartGame}
+            onWorldSelect={handleWorldSelect}
+            onLevelSelect={handleLevelSelect}
             dailyStreak={dailyStreak}
             skill={skill}
-            totalPuzzlesSolved={totalPuzzlesSolved}
-            zoneProgressV2={zoneProgressV2}
+            totalPuzzlesSolved={globalProgress.totalPuzzlesSolved}
           />
         );
       case 'play':
-        return <PlayContent currentZoneId={currentZoneId} />;
+        return <PlayContent />;
       case 'shop':
         return <ShopPage />;
       case 'inventory':
@@ -136,33 +126,66 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   );
 }
 
+// World progress type from useAllWorldsProgress
+type WorldWithProgress = WorldConfig & {
+  status: 'locked' | 'in_progress' | 'completed';
+  completedLevels: number;
+  totalLevels: number;
+};
+
 // Home tab content
 interface HomeContentProps {
-  currentZone: ReturnType<typeof getZoneById>;
-  unlockedZones: string[];
-  onStartGame: (zoneId?: string) => void;
+  currentWorld: WorldConfig;
+  allWorlds: WorldWithProgress[];
+  onStartGame: (worldId?: WorldId) => void;
+  onWorldSelect: (worldId: WorldId) => void;
+  onLevelSelect: (levelNumber: number) => void;
   dailyStreak: number;
   skill: OperatorSkill;
   totalPuzzlesSolved: number;
-  zoneProgressV2: Record<string, ZoneProgressV2>;
 }
 
 function HomeContent({
-  currentZone,
-  unlockedZones,
+  currentWorld,
+  allWorlds,
   onStartGame,
+  onWorldSelect,
+  onLevelSelect,
   dailyStreak,
   skill,
   totalPuzzlesSolved,
-  zoneProgressV2,
 }: HomeContentProps) {
+  const [selectedWorld, setSelectedWorld] = useState<WorldId | null>(null);
+  const levelProgress = useCurrentLevelProgress();
+
+  const handleWorldClick = (world: WorldWithProgress) => {
+    if (world.status === 'locked') return;
+    setSelectedWorld(world.id);
+    onWorldSelect(world.id);
+  };
+
   return (
     <div className="p-4 space-y-6">
-      {/* Current Zone Banner */}
-      {currentZone && (
+      {/* Current Level Banner */}
+      {currentWorld && levelProgress && (
         <div className="mb-4">
-          <h2 className="text-gray-400 text-sm mb-2">אזור נוכחי</h2>
-          <ZoneBanner zone={currentZone} />
+          <h2 className="text-gray-400 text-sm mb-2">שלב נוכחי</h2>
+          <div
+            className={`rounded-xl p-4 bg-gradient-to-r ${currentWorld.theme.background} border border-white/20`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white/70 text-sm">{currentWorld.nameHe}</div>
+                <div className="text-white font-bold text-xl">
+                  {levelProgress.nameHe}
+                </div>
+                <div className="text-white/60 text-sm mt-1">
+                  שלב {levelProgress.levelNumber} / 30 • {levelProgress.isBoss ? 'בוס!' : `פאזל ${levelProgress.puzzlesSolved}/${levelProgress.puzzlesRequired}`}
+                </div>
+              </div>
+              <div className="text-4xl">{currentWorld.theme.icon}</div>
+            </div>
+          </div>
           <motion.button
             className="w-full mt-3 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2"
             whileHover={{ scale: 1.02 }}
@@ -191,7 +214,7 @@ function HomeContent({
         />
       </div>
 
-      {/* Skill Overview */}
+      {/* Skill Overview - All operators always visible */}
       <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
         <h3 className="text-white font-bold mb-3 flex items-center gap-2">
           <span>📊</span>
@@ -205,41 +228,164 @@ function HomeContent({
         </div>
       </div>
 
-      {/* Zone Selection */}
+      {/* World Selection */}
       <div>
         <h3 className="text-white font-bold mb-3 flex items-center gap-2">
           <span>🗺️</span>
-          אזורים
+          עולמות
         </h3>
         <div className="space-y-3">
-          {ZONES.map((zone) => {
-            // V2 progress check - fall back to V1 for backwards compatibility
-            const v2Progress = zoneProgressV2[zone.id];
-            const isUnlockedV2 = v2Progress?.status !== 'locked';
-            const isUnlocked = isUnlockedV2 || unlockedZones.includes(zone.id);
-            const isCurrent = currentZone?.id === zone.id;
-
-            return (
-              <ZoneCard
-                key={zone.id}
-                zone={zone}
-                isUnlocked={isUnlocked}
-                isCurrent={isCurrent}
-                onClick={() => isUnlocked && onStartGame(zone.id)}
-                progress={v2Progress}
-                skillLevels={skill}
-              />
-            );
-          })}
+          {allWorlds.map((world) => (
+            <WorldCard
+              key={world.id}
+              world={world}
+              isSelected={selectedWorld === world.id}
+              onClick={() => handleWorldClick(world)}
+            />
+          ))}
         </div>
+      </div>
+
+      {/* Level Grid for selected world */}
+      {selectedWorld && (
+        <LevelGrid
+          worldId={selectedWorld}
+          onLevelSelect={(levelNum) => {
+            onLevelSelect(levelNum);
+            onStartGame();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// World Card Component
+function WorldCard({
+  world,
+  isSelected,
+  onClick,
+}: {
+  world: WorldWithProgress;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const isLocked = world.status === 'locked';
+  const isCompleted = world.status === 'completed';
+
+  return (
+    <motion.button
+      className={`w-full rounded-xl p-4 border-2 text-right transition-all ${
+        isLocked
+          ? 'bg-gray-800/50 border-gray-700 opacity-60 cursor-not-allowed'
+          : isSelected
+          ? `bg-gradient-to-r ${world.theme.background} border-white/50`
+          : `bg-gradient-to-r ${world.theme.background} border-white/20 hover:border-white/40`
+      }`}
+      whileHover={!isLocked ? { scale: 1.01 } : undefined}
+      whileTap={!isLocked ? { scale: 0.99 } : undefined}
+      onClick={onClick}
+      disabled={isLocked}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{world.theme.icon}</span>
+            <div>
+              <div className="text-white font-bold">{world.nameHe}</div>
+              <div className="text-white/60 text-sm">{world.name}</div>
+            </div>
+          </div>
+          {!isLocked && (
+            <div className="mt-2">
+              <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-white/50"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(world.completedLevels / world.totalLevels) * 100}%` }}
+                />
+              </div>
+              <div className="text-white/50 text-xs mt-1">
+                {world.completedLevels} / {world.totalLevels} שלבים
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mr-3">
+          {isLocked && <span className="text-3xl">🔒</span>}
+          {isCompleted && <span className="text-3xl">🏆</span>}
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+// Level Grid Component
+function LevelGrid({
+  worldId,
+  onLevelSelect,
+}: {
+  worldId: WorldId;
+  onLevelSelect: (levelNumber: number) => void;
+}) {
+  const levelsProgress = useWorldLevelsProgress(worldId);
+  const world = getWorld(worldId);
+
+  return (
+    <div className="mt-4">
+      <h4 className="text-white/70 text-sm mb-3">שלבים ב{world.nameHe}</h4>
+      <div className="grid grid-cols-3 gap-2">
+        {levelsProgress.map((level) => {
+          const isLocked = level.status === 'locked';
+          const isCompleted = level.status === 'completed';
+          const isInProgress = level.status === 'in_progress';
+
+          return (
+            <motion.button
+              key={level.level}
+              className={`aspect-square rounded-xl p-2 flex flex-col items-center justify-center border-2 ${
+                isLocked
+                  ? 'bg-gray-800/50 border-gray-700 opacity-50 cursor-not-allowed'
+                  : isCompleted
+                  ? 'bg-green-600/30 border-green-500'
+                  : isInProgress
+                  ? 'bg-blue-600/30 border-blue-400 ring-2 ring-blue-400/50'
+                  : 'bg-gray-700/50 border-gray-600'
+              }`}
+              whileHover={!isLocked ? { scale: 1.05 } : undefined}
+              whileTap={!isLocked ? { scale: 0.95 } : undefined}
+              onClick={() => !isLocked && onLevelSelect(level.level)}
+              disabled={isLocked}
+            >
+              {level.isBoss ? (
+                <span className="text-2xl">{isCompleted ? '👑' : '⚔️'}</span>
+              ) : isLocked ? (
+                <span className="text-xl">🔒</span>
+              ) : isCompleted ? (
+                <span className="text-xl">✅</span>
+              ) : (
+                <span className="text-white font-bold">{level.worldLevel}</span>
+              )}
+              {!isLocked && !level.isBoss && (
+                <div className="text-white/50 text-xs mt-1">
+                  {isCompleted ? `${level.stars}⭐` : `${level.puzzlesSolved}/${level.puzzlesRequired}`}
+                </div>
+              )}
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // Play tab content
-function PlayContent({ currentZoneId }: { currentZoneId: string }) {
-  const zone = getZoneById(currentZoneId);
+function PlayContent() {
+  const currentWorld = useCurrentWorld();
+  const currentLevelConfig = useCurrentLevel();
+  const levelProgress = useCurrentLevelProgress();
+  const isBossLevel = useIsBossLevel();
+
   const currentPuzzle = useGameStore((s) => s.currentPuzzle);
   const puzzleStatus = useGameStore((s) => s.puzzleStatus);
   const hintsUsed = useGameStore((s) => s.hintsUsed);
@@ -247,16 +393,10 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const recordResult = useGameStore((s) => s.recordResult);
   const skipPuzzle = useGameStore((s) => s.skipPuzzle);
 
-  // Boss system state
-  const puzzlesSinceLastBoss = useProgressStore((s) => s.puzzlesSinceLastBoss);
-  const defeatBoss = useProgressStore((s) => s.defeatBoss);
   const recordPuzzleSolved = useProgressStore((s) => s.recordPuzzleSolved);
-
-  // V2 progress tracking
-  const recordPuzzleSolvedV2 = useProgressStore((s) => s.recordPuzzleSolvedV2);
-  const defeatBossV2 = useProgressStore((s) => s.defeatBossV2);
-  const checkZoneMastery = useProgressStore((s) => s.checkZoneMastery);
-  const checkAndUnlockNextZone = useProgressStore((s) => s.checkAndUnlockNextZone);
+  const completeLevel = useProgressStore((s) => s.completeLevel);
+  const defeatBoss = useProgressStore((s) => s.defeatBoss);
+  const currentLevel = useProgressStore((s) => s.currentLevel);
 
   const addXP = usePlayerStore((s) => s.addXP);
   const addCoins = usePlayerStore((s) => s.addCoins);
@@ -267,7 +407,7 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const markZoneIntroSeen = useUserStore((s) => s.markZoneIntroSeen);
   const markOperatorIntroSeen = useUserStore((s) => s.markOperatorIntroSeen);
 
-  const [showZoneIntro, setShowZoneIntro] = useState(false);
+  const [showWorldIntro, setShowWorldIntro] = useState(false);
   const [pendingOperatorIntros, setPendingOperatorIntros] = useState<Operator[]>([]);
   const [currentOperatorIntro, setCurrentOperatorIntro] = useState<Operator | null>(null);
   const [guidanceComplete, setGuidanceComplete] = useState(false);
@@ -278,52 +418,43 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
   const [isBossMode, setIsBossMode] = useState(false);
   const [bossRewards, setBossRewards] = useState({ coins: 0, xp: 0 });
 
-  // Zone mastery state
-  const [showZoneMastery, setShowZoneMastery] = useState(false);
-
-  // Check if next puzzle should be a boss
-  const checkAndStartBoss = () => {
-    if (zone && puzzlesSinceLastBoss >= zone.bossEvery - 1) {
-      setShowBossAnnouncement(true);
-      return true;
-    }
-    return false;
-  };
-
-  // Check for unseen zone/operator introductions when zone changes
+  // Check if this is a boss level and show announcement
   useEffect(() => {
-    if (!zone) return;
+    if (isBossLevel && !isBossMode && !showBossAnnouncement && !showBossVictory && guidanceComplete) {
+      setShowBossAnnouncement(true);
+    }
+  }, [isBossLevel, isBossMode, showBossAnnouncement, showBossVictory, guidanceComplete]);
 
-    // Check if this zone needs an intro
-    const needsZoneIntro = !seenZoneIntros.includes(currentZoneId);
+  // Check for unseen introductions when world changes
+  useEffect(() => {
+    if (!currentWorld) return;
 
-    // Check for unseen operators in this zone
-    const zoneOps = zone.ops as Operator[];
-    const unseenOps = zoneOps.filter(op => !seenOperatorIntros.includes(op));
+    const worldKey = currentWorld.id;
+    const needsWorldIntro = !seenZoneIntros.includes(worldKey);
 
-    if (needsZoneIntro && unseenOps.length > 0) {
-      // Show zone intro first, then operator intros
-      setShowZoneIntro(true);
+    // All operators are available from start - check which ones the player hasn't seen
+    const unseenOps = ALL_OPERATORS.filter(op => !seenOperatorIntros.includes(op));
+
+    // Only show operator intros in first world
+    if (needsWorldIntro && currentWorld.id === 'training' && unseenOps.length > 0) {
+      setShowWorldIntro(true);
       setPendingOperatorIntros(unseenOps);
       setGuidanceComplete(false);
-    } else if (unseenOps.length > 0) {
-      // Just show operator intros
-      setPendingOperatorIntros(unseenOps);
-      setCurrentOperatorIntro(unseenOps[0]);
+    } else if (needsWorldIntro) {
+      setShowWorldIntro(true);
+      setPendingOperatorIntros([]);
       setGuidanceComplete(false);
     } else {
-      // No guidance needed
       setGuidanceComplete(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentZoneId]);
+  }, [currentWorld?.id]);
 
-  // Handle zone intro completion
-  const handleZoneIntroComplete = () => {
-    markZoneIntroSeen(currentZoneId);
-    setShowZoneIntro(false);
+  // Handle world intro completion
+  const handleWorldIntroComplete = () => {
+    markZoneIntroSeen(currentWorld.id);
+    setShowWorldIntro(false);
 
-    // Start showing operator intros if any
     if (pendingOperatorIntros.length > 0) {
       setCurrentOperatorIntro(pendingOperatorIntros[0]);
     } else {
@@ -336,7 +467,6 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
     if (currentOperatorIntro) {
       markOperatorIntroSeen(currentOperatorIntro);
 
-      // Move to next operator intro or complete guidance
       const currentIndex = pendingOperatorIntros.indexOf(currentOperatorIntro);
       const nextOperator = pendingOperatorIntros[currentIndex + 1];
 
@@ -349,109 +479,99 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
     }
   };
 
-  // Start a puzzle when entering play mode if none exists and guidance is complete
-  // GUARD: Only start if puzzleStatus is 'idle' (not 'transitioning')
+  // Start a puzzle when entering play mode
   useEffect(() => {
-    if (puzzleStatus === 'idle' && !currentPuzzle && !showBossAnnouncement && !showBossVictory && guidanceComplete) {
-      // Check if it's boss time
-      if (!checkAndStartBoss()) {
-        startNewPuzzle(undefined, currentZoneId);
-      }
+    if (
+      puzzleStatus === 'idle' &&
+      !currentPuzzle &&
+      !showBossAnnouncement &&
+      !showBossVictory &&
+      guidanceComplete &&
+      !isBossLevel
+    ) {
+      startNewPuzzle(undefined, currentWorld.id, false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puzzleStatus, currentPuzzle, currentZoneId, showBossAnnouncement, showBossVictory, guidanceComplete]);
+  }, [puzzleStatus, currentPuzzle, showBossAnnouncement, showBossVictory, guidanceComplete, isBossLevel]);
 
   const handleBossStart = () => {
     setShowBossAnnouncement(false);
     setIsBossMode(true);
-    // Start a boss puzzle (with boss difficulty modifier)
-    startNewPuzzle(undefined, currentZoneId, true);
+    startNewPuzzle(undefined, currentWorld.id, true);
   };
 
   const handleSolve = (expression: import('@/engine/types').Expression, solvedPuzzleId: string) => {
-    // Pass puzzleId to validate against stale results
     recordResult(expression, hintsUsed, solvedPuzzleId);
-    recordPuzzleSolved(currentZoneId);
+    recordPuzzleSolved();
 
-    // V2 progress tracking
-    recordPuzzleSolvedV2(currentZoneId);
-
-    if (isBossMode && zone) {
+    if (isBossMode) {
       // Boss defeated!
-      const bossInfo = getBossInfo(zone);
       const coinReward = 100;
-      const xpReward = 50 + bossInfo.difficulty * 20;
+      const xpReward = 50 + currentLevelConfig.worldLevel * 20;
 
-      defeatBoss(currentZoneId);
-      defeatBossV2(currentZoneId); // V2 boss tracking
+      defeatBoss();
+      completeLevel();
       addCoins(coinReward, 'boss');
       addXP(xpReward);
 
       setBossRewards({ coins: coinReward, xp: xpReward });
       setIsBossMode(false);
       setShowBossVictory(true);
-
-      // Check for zone mastery after boss defeat
-      const isMastered = checkZoneMastery(currentZoneId);
-      if (isMastered) {
-        // Delay mastery modal to show after boss victory
-        setTimeout(() => {
-          setShowZoneMastery(true);
-          checkAndUnlockNextZone();
-        }, 3000);
-      }
     } else {
-      // Normal puzzle solved - useEffect will auto-start next puzzle
-      // when puzzleStatus changes to 'idle' (after recordResult clears puzzle)
-      // Add delay via setTimeout to let victory animation play
+      // Check if level is complete
+      const progress = levelProgress;
+      if (progress && progress.puzzlesSolved + 1 >= progress.puzzlesRequired) {
+        completeLevel();
+      }
+
+      // Auto-start next puzzle after delay
       setTimeout(() => {
-        // The useEffect will detect puzzleStatus === 'idle' and start next puzzle
-        // We just need to trigger boss check here
-        if (checkAndStartBoss()) {
-          // Boss announcement will show - don't start puzzle
-          return;
+        if (puzzleStatus === 'idle') {
+          startNewPuzzle(undefined, currentWorld.id, false);
         }
-        // Otherwise useEffect will handle starting next puzzle
       }, 1500);
     }
   };
 
   const handleBossVictoryContinue = () => {
     setShowBossVictory(false);
-    // useEffect will auto-start next puzzle when puzzleStatus is 'idle'
-    // startNewPuzzle guards against 'transitioning' state already
-    setTimeout(() => startNewPuzzle(undefined, currentZoneId), 500);
-  };
-
-  const handleZoneMasteryContinue = () => {
-    setShowZoneMastery(false);
-    // Continue playing - next puzzle will start automatically
+    // Progress store already advanced to next level
+    setTimeout(() => startNewPuzzle(undefined, currentWorld.id, false), 500);
   };
 
   const handleSkip = () => {
     if (!isBossMode) {
       skipPuzzle();
-      // useEffect will auto-start next puzzle when puzzleStatus becomes 'idle'
-      // No need to call startNewPuzzle here - it would race with useEffect
     }
-    // Can't skip boss puzzles
   };
 
-  const bossInfo = zone ? getBossInfo(zone) : null;
+  // Create zone-like object for legacy components
+  const zoneCompat = {
+    id: currentWorld.id,
+    name: currentWorld.name,
+    nameHe: currentWorld.nameHe,
+    ops: ALL_OPERATORS,
+    theme: currentWorld.theme,
+    descriptionHe: `עולם ${currentWorld.nameHe}`,
+  };
+
+  // Create boss info object
+  const bossInfo = {
+    name: currentWorld.bossName,
+    nameHe: currentWorld.bossNameHe,
+    difficulty: currentLevelConfig.worldLevel,
+  };
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
-      {/* Zone background overlay - use inline style for pointer-events to ensure it works */}
-      {zone && (
-        <div
-          data-testid="zone-overlay-fix-v2"
-          className={`absolute inset-0 bg-gradient-to-b ${zone.theme.background} opacity-20`}
-          style={{ pointerEvents: 'none', zIndex: -1 }}
-        />
-      )}
+      {/* World background overlay */}
+      <div
+        className={`absolute inset-0 bg-gradient-to-b ${currentWorld.theme.background} opacity-20`}
+        style={{ pointerEvents: 'none', zIndex: -1 }}
+      />
 
       {/* Boss mode indicator */}
-      {isBossMode && bossInfo && (
+      {isBossMode && (
         <motion.div
           className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-red-900/80 px-4 py-2 rounded-full border border-red-500"
           initial={{ y: -50, opacity: 0 }}
@@ -463,7 +583,16 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
         </motion.div>
       )}
 
-      {/* GUARD: Only render PuzzleBoard when puzzle is fully active */}
+      {/* Level indicator */}
+      {levelProgress && (
+        <div className="absolute top-2 right-2 z-10 bg-black/50 px-3 py-1 rounded-full">
+          <span className="text-white/80 text-sm">
+            {levelProgress.nameHe} • {levelProgress.puzzlesSolved}/{levelProgress.puzzlesRequired}
+          </span>
+        </div>
+      )}
+
+      {/* Puzzle Board */}
       {puzzleStatus === 'active' && currentPuzzle ? (
         <div className="relative z-10">
           <PuzzleBoard
@@ -486,10 +615,10 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
 
       {/* Boss Announcement Modal */}
       <AnimatePresence>
-        {showBossAnnouncement && zone && bossInfo && (
+        {showBossAnnouncement && (
           <BossAnnouncement
             bossInfo={bossInfo}
-            zone={zone}
+            world={currentWorld}
             onStart={handleBossStart}
           />
         )}
@@ -497,10 +626,10 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
 
       {/* Boss Victory Modal */}
       <AnimatePresence>
-        {showBossVictory && zone && bossInfo && (
+        {showBossVictory && (
           <BossVictory
             bossInfo={bossInfo}
-            zone={zone}
+            world={currentWorld}
             coinsEarned={bossRewards.coins}
             xpEarned={bossRewards.xp}
             onContinue={handleBossVictoryContinue}
@@ -508,35 +637,25 @@ function PlayContent({ currentZoneId }: { currentZoneId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Zone Introduction Modal */}
+      {/* World Introduction Modal */}
       <AnimatePresence>
-        {showZoneIntro && zone && (
+        {showWorldIntro && (
           <ZoneIntro
-            zoneNameHe={zone.nameHe}
-            zoneDescription={zone.descriptionHe}
+            zoneNameHe={currentWorld.nameHe}
+            zoneDescription={`ברוכים הבאים ל${currentWorld.nameHe}!`}
             newOperators={pendingOperatorIntros}
-            onContinue={handleZoneIntroComplete}
+            onContinue={handleWorldIntroComplete}
           />
         )}
       </AnimatePresence>
 
       {/* Operator Introduction Modal */}
       <AnimatePresence>
-        {currentOperatorIntro && zone && (
+        {currentOperatorIntro && (
           <OperatorGuide
             operator={currentOperatorIntro}
-            zoneNameHe={zone.nameHe}
+            zoneNameHe={currentWorld.nameHe}
             onComplete={handleOperatorIntroComplete}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Zone Mastery Modal */}
-      <AnimatePresence>
-        {showZoneMastery && zone && (
-          <ZoneMasteryModal
-            zone={zone}
-            onContinue={handleZoneMasteryContinue}
           />
         )}
       </AnimatePresence>
@@ -555,11 +674,15 @@ function ProfileContent() {
   const bestStreak = stats.bestStreak;
   const resetPlayer = usePlayerStore((s) => s.resetPlayer);
   const resetStats = useGameStore((s) => s.resetStats);
+  const resetProgress = useProgressStore((s) => s.resetProgress);
+
+  const globalProgress = useGlobalProgress();
 
   const handleReset = () => {
     if (confirm('האם אתה בטוח? כל ההתקדמות תאבד!')) {
       resetPlayer();
       resetStats();
+      resetProgress();
     }
   };
 
@@ -574,9 +697,30 @@ function ProfileContent() {
         <p className="text-gray-400">שחקן מתמטי</p>
       </div>
 
+      {/* Progress Overview */}
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+        <h3 className="text-white font-bold mb-3">התקדמות כללית</h3>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">שלבים שהושלמו</span>
+            <span className="text-white">{globalProgress.totalLevelsCompleted} / 30</span>
+          </div>
+          <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+              animate={{ width: `${globalProgress.completionPercentage}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">עולמות שהושלמו</span>
+            <span className="text-white">{globalProgress.completedWorlds} / 5</span>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard icon="🧩" value={totalPuzzlesSolved} label="חידות נפתרו" color="blue" />
+        <StatCard icon="🧩" value={globalProgress.totalPuzzlesSolved} label="חידות נפתרו" color="blue" />
         <StatCard icon="🔥" value={dailyStreak} label="רצף נוכחי" color="orange" />
         <StatCard icon="🏆" value={bestStreak} label="רצף שיא" color="yellow" />
         <StatCard

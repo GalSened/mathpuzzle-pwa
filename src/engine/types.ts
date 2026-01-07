@@ -251,3 +251,81 @@ export interface AdaptiveConfig {
   depth: number;
   operatorWeights: Record<Operator, number>;
 }
+
+// ============== V3: World/Level System ==============
+
+// Difficulty tiers (replaces zone-based progression)
+export type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'Boss';
+
+// World identifiers
+export type WorldId = 'training' | 'factory' | 'lab' | 'city' | 'core';
+
+// World progress status
+export type WorldStatus = 'locked' | 'in_progress' | 'completed';
+
+// Level status (V3)
+export type LevelStatusV3 = 'locked' | 'in_progress' | 'completed';
+
+// Theme configuration for a world
+export interface WorldTheme {
+  background: string;     // Tailwind gradient classes
+  accent: string;         // Tailwind color class
+  glow: string;           // Glow color for effects
+  icon: string;           // World icon emoji
+}
+
+// Level configuration (static definition)
+export interface LevelConfig {
+  level: number;           // 1-30 global level number
+  worldLevel: number;      // 1-6 within world
+  worldId: WorldId;
+  tier: Tier;
+  numbers: 3 | 4 | 5;
+  nameHe: string;
+  name: string;
+  puzzlesRequired: number; // 8-12 puzzles to complete
+  isBoss: boolean;
+}
+
+// World configuration (static definition)
+export interface WorldConfig {
+  id: WorldId;
+  name: string;
+  nameHe: string;
+  theme: WorldTheme;
+  levels: LevelConfig[];
+  unlockCondition: 'start' | WorldId; // which world must be completed
+  bossName: string;
+  bossNameHe: string;
+}
+
+// Level progress tracking (V3)
+export interface LevelProgressV3 {
+  levelId: number;         // Global level number (1-30)
+  puzzlesSolved: number;
+  puzzlesRequired: number;
+  status: LevelStatusV3;
+  stars: number;           // 0-3 based on performance
+  completedAt?: number;
+  bossDefeatedAt?: number;
+}
+
+// World progress tracking (V3)
+export interface WorldProgressV3 {
+  worldId: WorldId;
+  status: WorldStatus;
+  levels: Record<number, LevelProgressV3>;
+  completedAt?: number;
+  unlockedAt?: number;
+}
+
+// Tier preset configuration
+export interface TierPreset {
+  numbers: 3 | 4 | 5;
+  minDepth: number;
+  maxDepth: number;
+  traps: number;
+  errorMarginMin: number;
+  errorMarginMax: number;
+  intuitiveness: number;
+}

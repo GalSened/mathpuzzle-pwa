@@ -2,32 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Zone } from '@/engine/types';
-import { ZONES } from '@/engine/story';
+import type { WorldConfig, WorldId } from '@/engine/types';
+import { WORLDS, getNextWorld } from '@/engine/worlds';
 import { playBossVictory } from '@/lib/sounds';
 
-interface ZoneMasteryModalProps {
-  zone: Zone;
+interface WorldMasteryModalProps {
+  world: WorldConfig;
   onContinue: () => void;
 }
 
 /**
- * Modal displayed when a player masters a zone.
- * Shows trophy animation, mastered operators, and next zone reveal.
+ * Modal displayed when a player masters a world.
+ * Shows trophy animation and next world reveal.
+ * In V3, all operators are always available so we don't show "mastered operators".
  */
-export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
-  const [showNextZone, setShowNextZone] = useState(false);
+export function ZoneMasteryModal({ world, onContinue }: WorldMasteryModalProps) {
+  const [showNextWorld, setShowNextWorld] = useState(false);
 
-  // Find next zone
-  const zoneIndex = ZONES.findIndex(z => z.id === zone.id);
-  const nextZone = ZONES[zoneIndex + 1];
+  // Find next world
+  const nextWorld = getNextWorld(world.id);
 
   useEffect(() => {
     // Play victory sound
     playBossVictory();
 
-    // Reveal next zone after delay
-    const timer = setTimeout(() => setShowNextZone(true), 1500);
+    // Reveal next world after delay
+    const timer = setTimeout(() => setShowNextWorld(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -65,14 +65,14 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
           </motion.span>
         </motion.div>
 
-        {/* Zone mastered title */}
+        {/* World mastered title */}
         <motion.h2
           className="text-2xl font-bold text-yellow-300 mb-2"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          אזור הושלם!
+          עולם הושלם!
         </motion.h2>
 
         <motion.p
@@ -81,43 +81,35 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          השלמת את {zone.nameHe}
+          השלמת את {world.nameHe}
         </motion.p>
 
-        {/* Mastered operators */}
+        {/* World icon and completion badge */}
         <motion.div
           className="bg-black/30 rounded-xl p-4 mb-4"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.7 }}
         >
-          <p className="text-white/60 text-sm mb-3">פעולות שנשלטו:</p>
-          <div className="flex justify-center gap-3">
-            {zone.ops.map((op, index) => (
-              <motion.div
-                key={op}
-                className="w-12 h-12 rounded-xl bg-green-500/40 border border-green-400 flex items-center justify-center"
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.8 + index * 0.1, type: 'spring' }}
-              >
-                <span className="text-2xl font-bold text-white">{op}</span>
-                <motion.span
-                  className="absolute -top-1 -right-1 text-lg"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 1 + index * 0.1 }}
-                >
-                  ✓
-                </motion.span>
-              </motion.div>
-            ))}
+          <div className="flex justify-center items-center gap-4">
+            <motion.span
+              className="text-5xl"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.8, type: 'spring' }}
+            >
+              {world.theme.icon}
+            </motion.span>
+            <div className="text-right">
+              <p className="text-white font-bold text-lg">{world.name}</p>
+              <p className="text-green-400 text-sm">6/6 שלבים הושלמו ✓</p>
+            </div>
           </div>
         </motion.div>
 
-        {/* Next zone reveal */}
+        {/* Next world reveal */}
         <AnimatePresence>
-          {showNextZone && nextZone && (
+          {showNextWorld && nextWorld && (
             <motion.div
               className="mb-4"
               initial={{ height: 0, opacity: 0 }}
@@ -125,11 +117,11 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
               transition={{ duration: 0.5 }}
             >
               <motion.div
-                className={`rounded-xl p-4 border-2 border-white/30 bg-gradient-to-br ${nextZone.theme.background}`}
+                className={`rounded-xl p-4 border-2 border-white/30 bg-gradient-to-br ${nextWorld.theme.background}`}
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
               >
-                <p className="text-white/70 text-sm mb-2">נפתח אזור חדש!</p>
+                <p className="text-white/70 text-sm mb-2">נפתח עולם חדש!</p>
                 <motion.div
                   className="flex items-center justify-center gap-3"
                   initial={{ y: 10, opacity: 0 }}
@@ -144,34 +136,25 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
                     🔓
                   </motion.span>
                   <div className="text-right">
-                    <h3 className="text-xl font-bold text-white">{nextZone.nameHe}</h3>
-                    <p className="text-white/60 text-sm">{nextZone.name}</p>
+                    <h3 className="text-xl font-bold text-white">{nextWorld.nameHe}</h3>
+                    <p className="text-white/60 text-sm">{nextWorld.name}</p>
                   </div>
+                  <span className="text-3xl">{nextWorld.theme.icon}</span>
                 </motion.div>
-                <div className="flex justify-center gap-2 mt-2">
-                  {nextZone.ops.map((op) => (
-                    <span
-                      key={op}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded bg-white/20 text-white font-bold"
-                    >
-                      {op}
-                    </span>
-                  ))}
-                </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* No more zones message */}
-        {showNextZone && !nextZone && (
+        {/* No more worlds message */}
+        {showNextWorld && !nextWorld && (
           <motion.div
             className="mb-4 p-4 bg-gradient-to-r from-purple-600/30 to-pink-600/30 rounded-xl border border-purple-400/50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
             <span className="text-3xl">🌟</span>
-            <p className="text-white font-bold mt-2">השלמת את כל האזורים!</p>
+            <p className="text-white font-bold mt-2">השלמת את כל העולמות!</p>
             <p className="text-white/70 text-sm">אתה אלוף מתמטיקה אמיתי!</p>
           </motion.div>
         )}
@@ -183,10 +166,10 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
           whileTap={{ scale: 0.98 }}
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: showNextZone ? 2 : 1.2 }}
+          transition={{ delay: showNextWorld ? 2 : 1.2 }}
           onClick={onContinue}
         >
-          {nextZone ? 'המשך לאזור הבא!' : 'סיום'}
+          {nextWorld ? 'המשך לעולם הבא!' : 'סיום'}
         </motion.button>
 
         {/* Glow effect */}
@@ -205,6 +188,9 @@ export function ZoneMasteryModal({ zone, onContinue }: ZoneMasteryModalProps) {
     </motion.div>
   );
 }
+
+// Also export as WorldMasteryModal for clarity
+export { ZoneMasteryModal as WorldMasteryModal };
 
 // Confetti particles
 function MasteryConfetti() {
