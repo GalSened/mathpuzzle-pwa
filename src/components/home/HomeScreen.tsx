@@ -102,21 +102,23 @@ export function HomeScreen({ initialTab = 'home' }: HomeScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pb-20">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-gray-900 to-black">
       <TopBar showStats={activeTab !== 'play'} />
 
-      <main className="max-w-lg mx-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderContent()}
-          </motion.div>
-        </AnimatePresence>
+      <main className="flex-1 overflow-hidden max-w-lg mx-auto w-full">
+        <div className="h-full overflow-y-auto scrollable-area pb-20">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />

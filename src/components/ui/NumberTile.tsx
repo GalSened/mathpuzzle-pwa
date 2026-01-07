@@ -18,7 +18,7 @@ export function NumberTile({ value, state, onClick, disabled }: NumberTileProps)
       onClick={onClick}
       disabled={disabled || state === 'used'}
       className={cn(
-        'w-16 h-16 rounded-xl font-bold text-2xl transition-all duration-200',
+        'w-16 h-16 rounded-xl font-bold text-2xl transition-all duration-200 tap-target',
         'border-2 shadow-lg',
         state === 'unused' && 'bg-slate-700 border-slate-500 text-white hover:border-blue-400',
         state === 'selected' && 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-400/50',

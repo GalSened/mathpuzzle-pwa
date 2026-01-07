@@ -18,11 +18,58 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* === MOBILE BOUNDS & SCROLL CONTAINMENT === */
+
+html {
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
+  height: 100dvh;
+}
+
 body {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  min-height: 100vh;
+  overscroll-behavior: none;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+}
+
+/* Game container - no scroll, tap-friendly */
+.game-bounds {
+  touch-action: manipulation;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollable nested areas */
+.scrollable-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Modal overlay - block all gestures */
+.modal-overlay {
+  touch-action: none;
+}
+
+/* Interactive elements - optimized tap */
+.tap-target {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection during game */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Glass effect utility */

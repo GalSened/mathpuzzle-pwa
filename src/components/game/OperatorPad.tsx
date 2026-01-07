@@ -35,7 +35,7 @@ export function OperatorPad({
             disabled={disabled || !isAllowed}
             aria-label={label}
             className={cn(
-              'w-14 h-14 rounded-full font-bold text-2xl transition-all duration-200',
+              'w-14 h-14 rounded-full font-bold text-2xl transition-all duration-200 tap-target',
               'border-2 shadow-md',
               isAllowed
                 ? 'bg-amber-600 border-amber-400 text-white hover:bg-amber-500'

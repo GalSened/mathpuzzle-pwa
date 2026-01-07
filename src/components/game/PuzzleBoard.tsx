@@ -259,7 +259,7 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
       : he.selectNumber;
 
   return (
-    <div className="flex flex-col gap-6 p-4 max-w-md mx-auto" dir="rtl">
+    <div className="flex flex-col gap-6 p-4 max-w-md mx-auto game-bounds no-select" dir="rtl">
       {/* Target Display */}
       <motion.div
         className={cn(

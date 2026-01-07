@@ -43,7 +43,7 @@ export function BossVictory({
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-hidden"
+      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-hidden modal-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
