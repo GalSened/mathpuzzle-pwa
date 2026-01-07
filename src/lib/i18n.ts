@@ -32,7 +32,7 @@ export const he = {
   tutorialStep3Desc: 'לחצו על מספר נוסף לביצוע החישוב',
   tutorialStep4Title: 'הגיעו למטרה!',
   tutorialStep4Desc: 'ברגע שהתוצאה שווה למטרה - ניצחתם!',
-  tutorialTip: 'טיפ: לא תמיד צריך להשתמש בכל המספרים',
+  tutorialTip: 'טיפ: ברוב החידות חובה להשתמש בכל המספרים!',
   tutorialExample: 'דוגמה',
   tutorialExampleDesc: 'המטרה היא 10. יש לנו: 3, 5, 2',
   tutorialExampleStep1: '3 + 5 = 8',
@@ -168,6 +168,15 @@ export const he = {
     newFeature: 'תכונה חדשה:',
     parentheses: 'סדר פעולות חשוב עכשיו! השתמשו בסוגריים',
     moreNumbers: 'עכשיו יש 4 מספרים לשחק איתם',
+  },
+
+  // Game rules - accurate explanations for PuzzleBoard
+  gameRules: {
+    allOperatorsAvailable: 'כל הפעולות זמינות: + − × ÷',
+    mustUseAllNumbers: 'חובה להשתמש בכל המספרים',
+    canSkipNumbers: 'אפשר לדלג על מספרים',
+    numbersCount: (count: number) => `${count} מספרים`,
+    reachTarget: 'הגיעו למספר המטרה',
   },
 };
 

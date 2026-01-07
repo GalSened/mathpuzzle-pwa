@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorldConfig, WorldId } from '@/engine/types';
 import { WORLDS, getNextWorld } from '@/engine/worlds';
 import { playBossVictory } from '@/lib/sounds';
+import { useVictory } from '@/hooks/useAINarrative';
+import { buildWorldTransitionContext } from '@/ai/context';
 
 interface WorldMasteryModalProps {
   world: WorldConfig;
@@ -21,6 +23,18 @@ export function ZoneMasteryModal({ world, onContinue }: WorldMasteryModalProps) 
 
   // Find next world
   const nextWorld = getNextWorld(world.id);
+
+  // Build AI context for victory message
+  const aiContext = useMemo(
+    () => buildWorldTransitionContext({ world }),
+    [world]
+  );
+
+  // Fetch AI-generated victory message
+  const { narrative: aiVictoryMessage, loading: aiLoading } = useVictory(aiContext);
+
+  // Use AI message if available, otherwise static text
+  const victoryMessage = aiVictoryMessage || `השלמת את ${world.nameHe}`;
 
   useEffect(() => {
     // Play victory sound
@@ -75,13 +89,23 @@ export function ZoneMasteryModal({ world, onContinue }: WorldMasteryModalProps) 
           עולם הושלם!
         </motion.h2>
 
+        {/* AI-generated or fallback victory message */}
         <motion.p
           className="text-white/80 text-lg mb-4"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          השלמת את {world.nameHe}
+          {aiLoading ? (
+            <motion.span
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ repeat: Infinity, duration: 1 }}
+            >
+              ...
+            </motion.span>
+          ) : (
+            victoryMessage
+          )}
         </motion.p>
 
         {/* World icon and completion badge */}

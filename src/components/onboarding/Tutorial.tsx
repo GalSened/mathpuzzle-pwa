@@ -40,10 +40,10 @@ const tutorialSteps: TutorialStep[] = [
     highlight: 'target',
   },
   {
-    title: '💡 טיפ חשוב',
+    title: '⚠️ כלל חשוב',
     description: he.tutorialTip,
-    icon: <span className="text-4xl">💡</span>,
-    highlight: 'tip',
+    icon: <span className="text-4xl">⚠️</span>,
+    highlight: 'mustUseAll',
   },
 ];
 
@@ -172,23 +172,22 @@ export function Tutorial() {
                       </motion.div>
                     </div>
                   )}
-                  {tutorialSteps[currentStep].highlight === 'tip' && (
+                  {tutorialSteps[currentStep].highlight === 'mustUseAll' && (
                     <div className="text-center">
                       <div className="flex justify-center gap-2 mb-3">
-                        {[3, 5, 2].map((num, i) => (
-                          <div
+                        {[3, 5, 2].map((num) => (
+                          <motion.div
                             key={num}
-                            className={cn(
-                              'w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold',
-                              i < 2 ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400'
-                            )}
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-green-600 text-white"
                           >
                             {num}
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                       <div className="text-slate-300 text-sm">
-                        לדוגמה: אם המטרה היא 8, מספיק לחבר 3 + 5
+                        כל המספרים צריכים להיות בשימוש בסוף החידה ✓
                       </div>
                     </div>
                   )}

@@ -291,6 +291,23 @@ export function PuzzleBoard({ puzzle, onSolve, onSkip }: PuzzleBoardProps) {
         )}
       </motion.div>
 
+      {/* Rules Banner - Clear instructions about the puzzle */}
+      <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700">
+        <div className="flex items-center justify-between text-sm">
+          <span className={cn(
+            'flex items-center gap-1',
+            puzzle.constraints.mustUseAllNumbers ? 'text-amber-400' : 'text-slate-400'
+          )}>
+            {puzzle.constraints.mustUseAllNumbers
+              ? `⚠️ ${he.gameRules.mustUseAllNumbers}`
+              : `💡 ${he.gameRules.canSkipNumbers}`}
+          </span>
+          <span className="text-slate-400">
+            {he.gameRules.numbersCount(puzzle.numbers.length)}
+          </span>
+        </div>
+      </div>
+
       {/* Expression Display */}
       <div className="bg-slate-900 rounded-xl p-4 min-h-[60px] border border-slate-700">
         <div className="text-slate-300 text-center font-mono" dir="ltr">

@@ -425,24 +425,18 @@ function PlayContent() {
     }
   }, [isBossLevel, isBossMode, showBossAnnouncement, showBossVictory, guidanceComplete]);
 
-  // Check for unseen introductions when world changes
+  // Check for unseen world intro when world changes
+  // NOTE: All operators (+, -, ×, ÷) are available from the start in V3
+  // We no longer show individual operator guides since they're all unlocked
   useEffect(() => {
     if (!currentWorld) return;
 
     const worldKey = currentWorld.id;
     const needsWorldIntro = !seenZoneIntros.includes(worldKey);
 
-    // All operators are available from start - check which ones the player hasn't seen
-    const unseenOps = ALL_OPERATORS.filter(op => !seenOperatorIntros.includes(op));
-
-    // Only show operator intros in first world
-    if (needsWorldIntro && currentWorld.id === 'training' && unseenOps.length > 0) {
+    if (needsWorldIntro) {
       setShowWorldIntro(true);
-      setPendingOperatorIntros(unseenOps);
-      setGuidanceComplete(false);
-    } else if (needsWorldIntro) {
-      setShowWorldIntro(true);
-      setPendingOperatorIntros([]);
+      setPendingOperatorIntros([]); // No operator intros - all are available from start
       setGuidanceComplete(false);
     } else {
       setGuidanceComplete(true);
@@ -642,7 +636,9 @@ function PlayContent() {
         {showWorldIntro && (
           <ZoneIntro
             zoneNameHe={currentWorld.nameHe}
-            zoneDescription={`ברוכים הבאים ל${currentWorld.nameHe}!`}
+            zoneDescription={currentWorld.id === 'training'
+              ? 'כל הפעולות זמינות: + − × ÷\nחובה להשתמש בכל המספרים!'
+              : `ברוכים הבאים ל${currentWorld.nameHe}!`}
             newOperators={pendingOperatorIntros}
             onContinue={handleWorldIntroComplete}
           />

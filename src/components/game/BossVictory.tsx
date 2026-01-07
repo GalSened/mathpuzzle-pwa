@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorldConfig, WorldId } from '@/engine/types';
 import { WORLD_STORIES, getBossProfile } from '@/engine/story';
 import { playBossVictory } from '@/lib/sounds';
+import { useBossDefeat } from '@/hooks/useAINarrative';
+import { buildBossContext } from '@/ai/context';
 
 interface BossVictoryProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
@@ -28,7 +30,24 @@ export function BossVictory({
   const victoryText = WORLD_STORIES[worldId]?.victoryHe || 'הבוס הובס!';
   const bossProfile = getBossProfile(worldId);
   const bossVisual = bossProfile?.defeatedVisual || '💀';
-  const defeatQuote = bossProfile?.defeatQuoteHe || '';
+  const fallbackDefeatQuote = bossProfile?.defeatQuoteHe || '';
+
+  // Build AI context for boss defeat
+  const aiContext = useMemo(
+    () =>
+      buildBossContext({
+        world,
+        currentLevel: 6, // Boss is always level 6
+        storyBeat: 'victory',
+      }),
+    [world]
+  );
+
+  // Fetch AI-generated defeat quote
+  const { narrative: aiDefeatQuote, loading: aiLoading } = useBossDefeat(aiContext);
+
+  // Use AI quote if available, otherwise fallback
+  const defeatQuote = aiDefeatQuote || fallbackDefeatQuote;
 
   useEffect(() => {
     // Play victory fanfare when screen appears
@@ -105,23 +124,33 @@ export function BossVictory({
           {bossInfo.nameHe} שוחרר!
         </motion.h2>
 
-        {/* Boss defeat quote - character redemption */}
+        {/* Boss defeat quote - AI-generated or fallback */}
         <AnimatePresence>
-          {showQuote && defeatQuote && (
+          {showQuote && (
             <motion.div
               className="bg-black/40 rounded-lg p-3 mb-4 border border-yellow-500/30"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               transition={{ duration: 0.3 }}
             >
-              <motion.p
-                className="text-yellow-200 italic text-base"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                {defeatQuote}
-              </motion.p>
+              {aiLoading ? (
+                <motion.p
+                  className="text-yellow-200/50 italic text-base"
+                  animate={{ opacity: [0.3, 0.7, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 1 }}
+                >
+                  ...
+                </motion.p>
+              ) : (
+                <motion.p
+                  className="text-yellow-200 italic text-base"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  &ldquo;{defeatQuote}&rdquo;
+                </motion.p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

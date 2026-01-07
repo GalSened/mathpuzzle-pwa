@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { WorldConfig, WorldId } from '@/engine/types';
 import { WORLD_STORIES, getBossProfile } from '@/engine/story';
 import { playBossAppear } from '@/lib/sounds';
+import { useBossIntro } from '@/hooks/useAINarrative';
+import { buildBossContext } from '@/ai/context';
 
 interface BossAnnouncementProps {
   bossInfo: { name: string; nameHe: string; difficulty: number };
@@ -18,7 +20,24 @@ export function BossAnnouncement({ bossInfo, world, onStart }: BossAnnouncementP
   const bossProfile = getBossProfile(worldId);
   const bossVisual = bossProfile?.visual || '👹';
   const bossTitle = bossProfile?.titleHe || '';
-  const bossTaunt = bossProfile?.tauntHe || '';
+  const fallbackTaunt = bossProfile?.tauntHe || '';
+
+  // Build AI context for boss intro
+  const aiContext = useMemo(
+    () =>
+      buildBossContext({
+        world,
+        currentLevel: 6, // Boss is always level 6 of each world
+        storyBeat: 'intro',
+      }),
+    [world]
+  );
+
+  // Fetch AI-generated boss taunt
+  const { narrative: aiTaunt, loading: aiLoading, isFallback } = useBossIntro(aiContext);
+
+  // Use AI taunt if available, otherwise fallback
+  const bossTaunt = aiTaunt || fallbackTaunt;
 
   // Play boss appear sound when component mounts
   useEffect(() => {
@@ -116,14 +135,22 @@ export function BossAnnouncement({ bossInfo, world, onStart }: BossAnnouncementP
           {storyText}
         </motion.p>
 
-        {/* Boss taunt - character voice */}
-        {bossTaunt && (
-          <motion.div
-            className="bg-black/40 rounded-lg p-3 mb-4 border border-red-500/30"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.7 }}
-          >
+        {/* Boss taunt - AI-generated or fallback */}
+        <motion.div
+          className="bg-black/40 rounded-lg p-3 mb-4 border border-red-500/30"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.7 }}
+        >
+          {aiLoading ? (
+            <motion.p
+              className="text-red-300/50 italic text-base"
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ repeat: Infinity, duration: 1 }}
+            >
+              ...
+            </motion.p>
+          ) : (
             <motion.p
               className="text-red-300 italic text-base"
               animate={{
@@ -131,10 +158,10 @@ export function BossAnnouncement({ bossInfo, world, onStart }: BossAnnouncementP
               }}
               transition={{ repeat: Infinity, duration: 3 }}
             >
-              {bossTaunt}
+              &ldquo;{bossTaunt}&rdquo;
             </motion.p>
-          </motion.div>
-        )}
+          )}
+        </motion.div>
 
         {/* World name */}
         <motion.div

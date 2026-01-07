@@ -185,7 +185,7 @@ export function ZoneIntro({ zoneNameHe, zoneDescription, newOperators, onContinu
             {zoneNameHe}
           </h1>
 
-          <p className="text-gray-300 text-center mb-6">
+          <p className="text-gray-300 text-center mb-6 whitespace-pre-line">
             {zoneDescription}
           </p>
 
