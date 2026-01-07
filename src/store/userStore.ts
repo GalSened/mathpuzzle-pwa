@@ -31,7 +31,7 @@ export const useUserStore = create<UserState>()(
       hasCompletedOnboarding: false,
       hasSeenPrologue: false,
       hasSeenTutorial: false,
-      seenOperatorIntros: ['+'] as Operator[], // Addition is always known from start
+      seenOperatorIntros: ['+', '-', '×', '÷'] as Operator[], // V3: All operators available from start
       seenZoneIntros: ['addlands'], // First zone is seen by default
 
       setUser: (name: string, gender: Gender) => {
@@ -76,7 +76,7 @@ export const useUserStore = create<UserState>()(
           hasCompletedOnboarding: false,
           hasSeenPrologue: false,
           hasSeenTutorial: false,
-          seenOperatorIntros: ['+'],
+          seenOperatorIntros: ['+', '-', '×', '÷'],
           seenZoneIntros: ['addlands'],
         });
       },
