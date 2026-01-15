@@ -185,13 +185,14 @@ export interface PlayerState {
   totalPuzzlesSolved: number;
 }
 
-// Zone definition for story mode
+/** @deprecated V2 legacy - not used in V3 world system */
 export interface ZoneTheme {
   background: string; // Tailwind gradient classes
   accent: string; // Tailwind color class
   pattern: string; // CSS pattern identifier
 }
 
+/** @deprecated V2 legacy - use WorldConfig from worlds.ts instead */
 export interface Zone {
   id: string;
   name: string;
@@ -204,7 +205,7 @@ export interface Zone {
   descriptionHe: string;
 }
 
-// Zone progression tracking (V1 - legacy)
+/** @deprecated V1 legacy - use progressStore instead */
 export interface ZoneProgress {
   solved: number;
   total: number;
@@ -232,7 +233,7 @@ export interface LevelProgress {
   bossDefeatedAt?: number;       // Timestamp when boss was defeated
 }
 
-// V2 Zone progress - comprehensive tracking
+/** @deprecated V2 legacy - use progressStore instead */
 export interface ZoneProgressV2 {
   zoneId: string;
   status: ZoneStatus;

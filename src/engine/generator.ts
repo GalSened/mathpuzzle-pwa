@@ -258,7 +258,7 @@ export class PuzzleGenerator {
 
     return {
       id: this.generateId(),
-      numbers,
+      numbers: this.shuffle(numbers),  // Randomize number order for players
       availableOperators: constraints.allowedOperators,
       target,
       constraints,

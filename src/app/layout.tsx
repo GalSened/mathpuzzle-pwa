@@ -46,22 +46,105 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Unregister any existing service workers
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for (let registration of registrations) {
-                    registration.unregister();
-                  }
-                });
-                // Clear all caches
-                if ('caches' in window) {
-                  caches.keys().then(function(names) {
-                    for (let name of names) {
-                      caches.delete(name);
-                    }
-                  });
+              (function() {
+                // Version-based cache management
+                var STORAGE_KEY = 'mathpuzzle-app-version';
+
+                // Check for version updates
+                function checkVersion() {
+                  fetch('/version.json?t=' + Date.now())
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                      var currentVersion = data.version;
+                      var storedVersion = localStorage.getItem(STORAGE_KEY);
+
+                      console.log('[App] Current version:', currentVersion);
+                      console.log('[App] Stored version:', storedVersion);
+
+                      if (storedVersion && storedVersion !== currentVersion) {
+                        console.log('[App] Version mismatch! Clearing caches...');
+
+                        // Clear all caches
+                        if ('caches' in window) {
+                          caches.keys().then(function(names) {
+                            return Promise.all(names.map(function(name) {
+                              console.log('[App] Deleting cache:', name);
+                              return caches.delete(name);
+                            }));
+                          }).then(function() {
+                            // Update stored version
+                            localStorage.setItem(STORAGE_KEY, currentVersion);
+                            // Reload to get fresh content
+                            console.log('[App] Reloading for new version...');
+                            window.location.reload();
+                          });
+                        } else {
+                          localStorage.setItem(STORAGE_KEY, currentVersion);
+                          window.location.reload();
+                        }
+                      } else {
+                        // First visit or same version
+                        localStorage.setItem(STORAGE_KEY, currentVersion);
+                      }
+                    })
+                    .catch(function(err) {
+                      console.log('[App] Version check failed:', err);
+                    });
                 }
-              }
+
+                // Register service worker
+                function registerSW() {
+                  if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw.js')
+                      .then(function(registration) {
+                        console.log('[App] SW registered:', registration.scope);
+
+                        // Listen for updates
+                        registration.addEventListener('updatefound', function() {
+                          var newWorker = registration.installing;
+                          if (newWorker) {
+                            newWorker.addEventListener('statechange', function() {
+                              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New SW installed, prompt for update
+                                console.log('[App] New version available!');
+                                if (confirm('A new version is available. Reload to update?')) {
+                                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                  window.location.reload();
+                                }
+                              }
+                            });
+                          }
+                        });
+                      })
+                      .catch(function(err) {
+                        console.log('[App] SW registration failed:', err);
+                      });
+
+                    // Handle SW messages
+                    navigator.serviceWorker.addEventListener('message', function(event) {
+                      if (event.data && event.data.type === 'SW_UPDATED') {
+                        console.log('[App] SW updated to:', event.data.version);
+                      }
+                    });
+
+                    // Handle controller change (new SW took over)
+                    navigator.serviceWorker.addEventListener('controllerchange', function() {
+                      console.log('[App] New SW controlling page');
+                    });
+                  }
+                }
+
+                // Run on load
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', function() {
+                    checkVersion();
+                    registerSW();
+                  });
+                } else {
+                  checkVersion();
+                  registerSW();
+                }
+              })();
             `,
           }}
         />

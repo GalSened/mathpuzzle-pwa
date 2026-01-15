@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Puzzle, Expression, PuzzleArchetype, Operator, EvaluationStep } from '@/engine/types';
 import { generator } from '@/engine/generator';
-import { adjustDifficulty, DIFFICULTY_PRESETS, BOSS_DIFFICULTY_PRESET } from '@/engine/difficulty';
+import { adjustDifficulty, DIFFICULTY_PRESETS } from '@/engine/difficulty';
 import { calculateXPReward, calculateCoinReward, extractUsedOperators } from '@/engine/adaptive';
 import { ALL_OPERATORS } from '@/engine/tiers';
 import { usePlayerStore } from './playerStore';
@@ -59,74 +59,6 @@ function createSimpleAdditionPuzzle(difficulty: 1 | 2 | 3 | 4 | 5): Puzzle {
       estimatedSolveTime: 30
     }
   };
-}
-
-// Creates a BOSS addition puzzle with 5 numbers for Addlands zone
-function createBossAdditionPuzzle(): Puzzle {
-  const [min, max] = BOSS_DIFFICULTY_PRESET.numberRange;
-
-  // Generate 5 random numbers for boss battle
-  const nums: number[] = [];
-  for (let i = 0; i < 5; i++) {
-    nums.push(Math.floor(Math.random() * (max - min + 1)) + min);
-  }
-
-  // Target is sum of 3-4 of them (require more numbers to be used)
-  const useCount = Math.random() < 0.5 ? 3 : 4;
-  const shuffled = [...nums].sort(() => Math.random() - 0.5);
-  const usedNums = shuffled.slice(0, useCount);
-  const target = usedNums.reduce((a, b) => a + b, 0);
-
-  // Build solution steps
-  const steps: EvaluationStep[] = [];
-  let runningSum = usedNums[0];
-  let notation = `${usedNums[0]}`;
-
-  for (let i = 1; i < usedNums.length; i++) {
-    const newSum = runningSum + usedNums[i];
-    steps.push({
-      left: runningSum,
-      operator: '+',
-      right: usedNums[i],
-      result: newSum,
-      notation: `${runningSum} + ${usedNums[i]} = ${newSum}`
-    });
-    notation += ` + ${usedNums[i]}`;
-    runningSum = newSum;
-  }
-
-  const puzzle: Puzzle = {
-    id: `boss-${Date.now()}`,
-    numbers: nums,
-    availableOperators: ['+'],
-    target,
-    constraints: {
-      mustUseAllNumbers: false,
-      allowParentheses: false,
-      allowedOperators: ['+'],
-      maxSteps: 4,
-      allowNegativeIntermediates: false,
-      allowFractions: false
-    },
-    archetype: 'chain',
-    difficulty: BOSS_DIFFICULTY_PRESET,
-    signature: `boss-add-${nums.join('-')}`,
-    solution: {
-      notation: `${notation} = ${target}`,
-      tree: { type: 'number', value: target },
-      result: target,
-      steps,
-      complexity: useCount
-    },
-    traps: [],
-    alternativeSolutions: [],
-    metadata: {
-      generatedAt: Date.now(),
-      validatedAt: Date.now(),
-      estimatedSolveTime: 90
-    }
-  };
-  return puzzle;
 }
 
 interface PuzzleResult {

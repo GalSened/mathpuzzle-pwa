@@ -45,6 +45,12 @@ const tutorialSteps: TutorialStep[] = [
     icon: <span className="text-4xl">⚠️</span>,
     highlight: 'mustUseAll',
   },
+  {
+    title: he.tutorialProgressionTitle,
+    description: he.tutorialProgressionDesc,
+    icon: <span className="text-4xl">📈</span>,
+    highlight: 'progression',
+  },
 ];
 
 export function Tutorial() {
@@ -188,6 +194,48 @@ export function Tutorial() {
                       </div>
                       <div className="text-slate-300 text-sm">
                         כל המספרים צריכים להיות בשימוש בסוף החידה ✓
+                      </div>
+                    </div>
+                  )}
+                  {tutorialSteps[currentStep].highlight === 'progression' && (
+                    <div className="text-center space-y-3">
+                      {/* Level 1-5: 3 numbers */}
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-slate-400 text-xs w-16">1-5:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map((n) => (
+                            <div key={n} className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                              {n}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Level 6+: 4 numbers */}
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-slate-400 text-xs w-16">6+:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4].map((n) => (
+                            <motion.div
+                              key={n}
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ repeat: Infinity, duration: 1.5 }}
+                              className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center text-sm font-bold"
+                            >
+                              {n}
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Boss: 5 numbers */}
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-slate-400 text-xs w-16">בוס:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <div key={n} className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center text-sm font-bold">
+                              {n}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}

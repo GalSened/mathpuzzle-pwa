@@ -117,23 +117,6 @@ export const DIFFICULTY_PRESETS: Record<1 | 2 | 3 | 4 | 5, DifficultyProfile> = 
   }
 };
 
-export const DIFFICULTY_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: 'כניסה חלקה',    // Smooth Entry
-  2: 'בחירה נכונה',   // Right Choice
-  3: 'תלות פעולות',   // Operation Dependency
-  4: 'מעבר רך',       // Soft Transition
-  5: 'אתגר אמיתי'     // Real Challenge
-};
-
-// English labels for fallback/debugging
-export const DIFFICULTY_LABELS_EN: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: 'Smooth Entry',
-  2: 'Right Choice',
-  3: 'Order Matters',
-  4: 'Soft Transition',
-  5: 'Real Challenge'
-};
-
 /**
  * Boss Mode Preset - 5 numbers, reserved for boss battles only
  * This should NEVER be used in normal progression
@@ -260,15 +243,4 @@ export function getTierDifficultyProfile(tier: Tier): DifficultyProfile {
       minIntuitiveness: preset.intuitiveness,
     },
   };
-}
-
-/**
- * Get the tier difficulty profile for a specific level number (1-30)
- */
-export function getLevelDifficultyProfile(levelNumber: number): DifficultyProfile {
-  // Lazy import to avoid circular dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getLevel } = require('./worlds');
-  const levelConfig = getLevel(levelNumber);
-  return getTierDifficultyProfile(levelConfig.tier);
 }

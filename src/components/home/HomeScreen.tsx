@@ -23,7 +23,7 @@ import { ShopPage, InventoryView } from '@/components/shop';
 import { LevelUpModal } from '@/components/ui/CoinDisplay';
 import { AvatarDisplay } from '@/components/ui/AvatarDisplay';
 import { PuzzleBoard } from '@/components/game/PuzzleBoard';
-import { OperatorGuide, ZoneIntro } from '@/components/onboarding/OperatorGuide';
+import { ZoneIntro } from '@/components/onboarding/OperatorGuide';
 import type { Operator, OperatorSkill, WorldId, WorldConfig } from '@/engine/types';
 import { ALL_OPERATORS } from '@/engine/tiers';
 
@@ -403,13 +403,9 @@ function PlayContent() {
 
   // Guidance system state
   const seenZoneIntros = useUserStore((s) => s.seenZoneIntros);
-  const seenOperatorIntros = useUserStore((s) => s.seenOperatorIntros);
   const markZoneIntroSeen = useUserStore((s) => s.markZoneIntroSeen);
-  const markOperatorIntroSeen = useUserStore((s) => s.markOperatorIntroSeen);
 
   const [showWorldIntro, setShowWorldIntro] = useState(false);
-  const [pendingOperatorIntros, setPendingOperatorIntros] = useState<Operator[]>([]);
-  const [currentOperatorIntro, setCurrentOperatorIntro] = useState<Operator | null>(null);
   const [guidanceComplete, setGuidanceComplete] = useState(false);
 
   // Boss encounter states
@@ -426,8 +422,6 @@ function PlayContent() {
   }, [isBossLevel, isBossMode, showBossAnnouncement, showBossVictory, guidanceComplete]);
 
   // Check for unseen world intro when world changes
-  // NOTE: All operators (+, -, ×, ÷) are available from the start in V3
-  // We no longer show individual operator guides since they're all unlocked
   useEffect(() => {
     if (!currentWorld) return;
 
@@ -436,7 +430,6 @@ function PlayContent() {
 
     if (needsWorldIntro) {
       setShowWorldIntro(true);
-      setPendingOperatorIntros([]); // No operator intros - all are available from start
       setGuidanceComplete(false);
     } else {
       setGuidanceComplete(true);
@@ -448,29 +441,7 @@ function PlayContent() {
   const handleWorldIntroComplete = () => {
     markZoneIntroSeen(currentWorld.id);
     setShowWorldIntro(false);
-
-    if (pendingOperatorIntros.length > 0) {
-      setCurrentOperatorIntro(pendingOperatorIntros[0]);
-    } else {
-      setGuidanceComplete(true);
-    }
-  };
-
-  // Handle operator intro completion
-  const handleOperatorIntroComplete = () => {
-    if (currentOperatorIntro) {
-      markOperatorIntroSeen(currentOperatorIntro);
-
-      const currentIndex = pendingOperatorIntros.indexOf(currentOperatorIntro);
-      const nextOperator = pendingOperatorIntros[currentIndex + 1];
-
-      if (nextOperator) {
-        setCurrentOperatorIntro(nextOperator);
-      } else {
-        setCurrentOperatorIntro(null);
-        setGuidanceComplete(true);
-      }
-    }
+    setGuidanceComplete(true);
   };
 
   // Start a puzzle when entering play mode
@@ -639,19 +610,8 @@ function PlayContent() {
             zoneDescription={currentWorld.id === 'training'
               ? 'כל הפעולות זמינות: + − × ÷\nחובה להשתמש בכל המספרים!'
               : `ברוכים הבאים ל${currentWorld.nameHe}!`}
-            newOperators={pendingOperatorIntros}
+            newOperators={[]}
             onContinue={handleWorldIntroComplete}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Operator Introduction Modal */}
-      <AnimatePresence>
-        {currentOperatorIntro && (
-          <OperatorGuide
-            operator={currentOperatorIntro}
-            zoneNameHe={currentWorld.nameHe}
-            onComplete={handleOperatorIntroComplete}
           />
         )}
       </AnimatePresence>

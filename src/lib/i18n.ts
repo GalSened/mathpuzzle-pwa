@@ -178,6 +178,19 @@ export const he = {
     numbersCount: (count: number) => `${count} מספרים`,
     reachTarget: 'הגיעו למספר המטרה',
   },
+
+  // Level progression - number counts
+  levelProgression: {
+    title: 'התקדמות ברמות',
+    easyLevels: 'רמות 1-5: 3 מספרים',
+    mediumLevels: 'רמות 6+: 4 מספרים',
+    bossLevels: 'קרב בוס: 5 מספרים',
+    tutorialNote: 'ככל שתתקדמו, יהיו יותר מספרים לשחק איתם!',
+  },
+
+  // Tutorial step for level progression
+  tutorialProgressionTitle: 'התקדמות',
+  tutorialProgressionDesc: 'ככל שמתקדמים, מקבלים יותר מספרים:\n• רמות 1-5: 3 מספרים\n• רמות 6+: 4 מספרים\n• בוסים: 5 מספרים',
 };
 
 export type Translations = typeof he;

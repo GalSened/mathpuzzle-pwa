@@ -1,8 +1,8 @@
 export * from './types';
 export { PuzzleSolver, solver } from './solver';
 export { PuzzleGenerator, generator } from './generator';
-export { DIFFICULTY_PRESETS, DIFFICULTY_LABELS, adjustDifficulty, getTierDifficultyProfile, getLevelDifficultyProfile } from './difficulty';
-export { computeSignature, SignatureHistory } from './signatures';
+export { DIFFICULTY_PRESETS, adjustDifficulty, getTierDifficultyProfile } from './difficulty';
+export { computeSignature } from './signatures';
 export { generateHint, evaluateAttempt } from './hints';
 export {
   adaptiveConfig,
