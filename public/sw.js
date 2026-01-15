@@ -9,7 +9,7 @@
  * Version is injected at build time by scripts/generate-version.js
  */
 
-const BUILD_VERSION = '88a3d19-1768475959911';
+const BUILD_VERSION = '__BUILD_VERSION__';
 const CACHE_NAME = `mathpuzzle-${BUILD_VERSION}`;
 
 // Assets to pre-cache (shell)

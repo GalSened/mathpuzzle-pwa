@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated at build time
+public/version.json
+
+# Test artifacts
+playwright-report/
+test-results/
